@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Analiz ProX",
+  "short_name": "Analiz ProX",
+  "description": "Kurumların röntgenini çeken yedi analiz paneli: 360° işletme, güven, İK aday değerlendirme, vizyon & iletişim, senaryo planlama, stres ve toplantı verimliliği.",
+  "start_url": "/#/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b14",
+  "theme_color": "#080b14",
+  "lang": "tr",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "assets/img/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/icon-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "assets/img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Paneller", "url": "/#/app", "icons": [{ "src": "assets/img/favicon-192.png", "sizes": "192x192" }] },
+    { "name": "Kullanım Kılavuzu", "url": "/#/guide", "icons": [{ "src": "assets/img/favicon-192.png", "sizes": "192x192" }] }
+  ]
+}
