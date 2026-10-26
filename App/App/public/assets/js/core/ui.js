@@ -1,4 +1,4 @@
-import { esc, html, toStr, $ } from './util.js';
+import { esc, html, raw, toStr, $ } from './util.js';
 import { t, T } from './i18n.js';
 
 // ------------------------------------------------------------ ICONS (24×24, stroke)
@@ -37,6 +37,8 @@ const P = {
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5.5 6.5-5.5s5.5 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18 14.5c2 .7 3.2 2.6 3.7 5.5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+  alert: '<path d="M12 3l9.5 16.5h-19L12 3z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/>',
+  radar: '<path d="M12 2l9 6.5-3.5 10.5h-11L3 8.5 12 2z"/><path d="M12 7l4.5 3.3-1.7 5.2H9.2L7.5 10.3 12 7z"/>',
 };
 export const icon = (name, cls = '') =>
   `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
@@ -90,7 +92,7 @@ export function confirmBox(title, body, { okText = T('delete'), danger = true, r
   });
 }
 
-export const loader = () => '<div class="loader"><i></i></div>';
+export const loader = () => raw('<div class="loader"><i></i></div>');
 
 // ------------------------------------------------------------ QR
 export function qrSvg(text) {

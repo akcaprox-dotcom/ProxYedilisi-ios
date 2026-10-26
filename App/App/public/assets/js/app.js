@@ -11,6 +11,7 @@ import { renderSurvey } from './views/survey.js';
 import { renderLegal } from './views/legal.js';
 import { renderGuide } from './views/guide.js';
 import { renderSubscribe } from './views/subscribe.js';
+import { renderXray } from './views/xray.js';
 import { msAutoSync } from './core/subscription.js';
 import { renderAdmin, renderMessages } from './views/admin.js';
 
@@ -35,6 +36,7 @@ route('/legal/:doc', renderLegal);
 route('/legal', () => renderLegal({ doc: 'privacy' }));
 route('/guide', renderGuide);
 route('/subscribe', authed(renderSubscribe));
+route('/xray', authed(renderXray));
 route('/guide/:key', renderGuide);
 fallback(() => go('/'));
 

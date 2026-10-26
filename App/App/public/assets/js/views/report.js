@@ -57,15 +57,23 @@ export function renderDemo({ key }) {
   draw(root, a, resps, { org: t('Örnek Kurum A.Ş.', 'Sample Company Ltd.'), demo: true });
 }
 
+// Rapor için gereken en az yanıt: beklenen katılımcı 1–2 ise o sayı, aksi hâlde 3
+export const minReportN = (a) => (a.target_n && a.target_n < 3 ? a.target_n : 3);
+
 function draw(root, a, resps, ctx) {
   const m = getModule(a.module);
   if (a.module === 'ik') return renderIkReport(root, a, resps, ctx);
-  let includeSuspect = false;
+  // Rapor her zaman dolu açılır: geçerli yanıt eşiğe yetmiyorsa şüpheli yanıtlar otomatik dahil edilir
+  const em = effective(m, a.settings);
+  const strict = aggregate(em, resps, { includeSuspect: false });
+  let includeSuspect = strict.excluded > 0 && strict.n < minReportN(a);
+  const auto = includeSuspect;
   const paint = () => {
-    root.innerHTML = toStr(build(m, a, resps, { ...ctx, includeSuspect })) + toStr(reportNotice(m.key));
+    root.innerHTML = toStr(build(m, a, resps, { ...ctx, includeSuspect, auto })) + toStr(reportNotice(m.key));
     const tg = $('#inc', root);
-    if (tg) tg.onchange = () => {
-      includeSuspect = tg.checked;
+    if (tg) tg.onclick = (e) => {
+      e.preventDefault();
+      includeSuspect = !includeSuspect;
       paint();
     };
     const pr = $('#print', root);
@@ -80,13 +88,19 @@ function build(base, a, resps, ctx) {
   const lang = getLang();
   const g = aggregate(mod, resps, { includeSuspect: ctx.includeSuspect });
   const head = header(base, a, g, ctx);
-  if (!g.n) return html`${head}<div class="empty">${t('Rapor için yeterli geçerli yanıt yok.', 'Not enough valid responses for a report.')}</div>`;
-  if (g.n < 3) return html`${head}<div class="empty">${t('Anonimliği korumak için rapor en az 3 geçerli yanıtla oluşturulur.', 'To protect anonymity, a report requires at least 3 valid responses.')}</div>`;
+  const minN = minReportN(a);
+  if (!g.total) return html`${head}<div class="empty">${t('Henüz yanıt yok. Bağlantıyı paylaştıkça yanıtlar burada rapora dönüşür.', 'No responses yet. As you share the link, responses turn into a report here.')}</div>`;
+  if (g.n < minN) return html`${head}${glow('lock', t('Rapor için daha fazla yanıt gerekiyor', 'More responses needed for the report'),
+    t(`Katılımcıların anonimliğini korumak için rapor en az ${minN} yanıtla oluşturulur. Şu an ${g.n} yanıt var; ${minN - g.n} yanıt daha gelince rapor kendiliğinden açılır. Daha sağlıklı sonuç için en az 5, ideal olarak 10 ve üzeri yanıt önerilir.`, `To protect respondents' anonymity, the report needs at least ${minN} responses. There are ${g.n} now; it opens automatically after ${minN - g.n} more. At least 5, ideally 10+, responses are recommended for reliable results.`)
+    + (a.module === 'toplanti' ? ' ' + t('Not: Her cihazdan yalnızca bir yanıt kabul edilir. Toplantıyı tek cihazdan birden fazla kişi yanıtlayacaksa değerlendirmeyi "Ortak cihaz (kiosk) modu" açık olarak oluşturun.', 'Note: only one response per device is accepted. If several people answer on one device, create the assessment with "Shared device (kiosk) mode" on.') : ''))}`;
 
   const gap = base.gap ? perceptionGap(mod, g, base.gap.field, base.gap.mgmt) : null;
   const dimsSorted = [...g.dims].filter((d) => d.mean != null && !d.def.noIndex).sort((x, y) => y.mean - x.mean);
   let n = 0;
   const out = [];
+
+  if (minN < 3) out.push(glow('alert', t('Az katılımcılı değerlendirme', 'Very small assessment'), t(`Bu değerlendirme ${a.target_n} katılımcı için oluşturuldu. Sonuçlar anonim değildir ve istatistiksel olarak genellenemez; kişinin kendi görüşü olarak okuyun.`, `This assessment was created for ${a.target_n} respondent(s). Results are not anonymous and cannot be generalised statistically; read them as personal views.`)));
+  if (g.n >= minN && g.n < 5 && minN >= 3) out.push(glow('info', t('Sınırlı veri', 'Limited data'), t(`Rapor ${g.n} yanıtla oluşturuldu. Sonuçlar yön gösterir ama güven aralıkları geniştir; daha sağlıklı sonuç için en az 5, ideal olarak 10 ve üzeri yanıt toplayın.`, `This report is based on ${g.n} responses. It is indicative but confidence intervals are wide; collect at least 5, ideally 10+, responses for reliable results.`)));
 
   // 01 — YÖNETİCİ ÖZETİ
   out.push(sec(++n, t('Yönetici özeti', 'Executive summary')));
@@ -149,7 +163,13 @@ function build(base, a, resps, ctx) {
   // GRUP KIRILIMLARI
   const groupFields = (base.meta || []).filter((f) => g.groups[f.key]?.length > 1);
   if (groupFields.length) {
-    out.push(sec(++n, t('Grup karşılaştırması', 'Group comparison'), t(`Birim ve gruplara göre boyut puanları. Anonimliği korumak için ${mod.minGroupN ?? CONFIG.MIN_GROUP_N}'ten az yanıtlı gruplar gizlenir.`, `Dimension scores by unit and group. Groups with fewer than ${mod.minGroupN ?? CONFIG.MIN_GROUP_N} responses are hidden to protect anonymity.`)));
+    const gmin = mod.minGroupN ?? CONFIG.MIN_GROUP_N;
+    out.push(sec(++n, a.module === 'toplanti' ? t('Rol karşılaştırması: üç bakış açısı', 'Role comparison: three perspectives') : t('Grup karşılaştırması', 'Group comparison'), a.module === 'toplanti'
+      ? t('Aynı toplantıyı düzenleyen, sunum yapan ve katılımcıların nasıl gördüğü. Farklar, toplantıyı yönetenin fark etmediği sorunları gösterir.', 'How the organizer, presenters and participants saw the same meeting. Gaps reveal issues the chair may not notice.')
+      : t('Birim ve gruplara göre boyut puanları.', 'Dimension scores by unit and group.')));
+    out.push(glow('shield', t('Anonimlik eşiği', 'Anonymity threshold'), a.module === 'toplanti'
+      ? t(`Her rolden en az ${gmin} yanıt gelmeden o rol ayrı gösterilmez. Rol karşılaştırması için her rolden en az ${gmin} kişinin yanıt vermesini sağlayın.`, `A role is shown only after at least ${gmin} responses from it. Make sure at least ${gmin} people per role respond.`)
+      : t(`Kimin ne cevap verdiğinin tahmin edilmemesi için ${gmin}'ten az yanıt alan birim ve gruplar raporda ayrı gösterilmez ("Anonimlik eşiğinin altında").`, `So that no one can infer who answered what, units and groups with fewer than ${gmin} responses are not shown separately ("Below anonymity threshold").`)));
     for (const f of groupFields) {
       const rows = g.groups[f.key];
       const label = (v) => (f.options ? L(f.options.find((o) => o.v === v)) || v : v);
@@ -186,8 +206,8 @@ function build(base, a, resps, ctx) {
   const texts = (mod.extras || []).filter((e) => e.type === 'text');
   const comments = texts.map((e) => ({ e, list: g.scored.map((s) => s.r.answers?.[e.id]).filter((x) => typeof x === 'string' && x.trim()) })).filter((x) => x.list.length);
   if (comments.length) {
-    out.push(sec(++n, t('Katılımcı görüşleri', 'Respondent comments'), t('Açık uçlu yanıtlar olduğu gibi, düzenlenmeden aktarılmıştır.', 'Open-ended answers are shown verbatim.')));
-    out.push(html`<div class="grid ${comments.length > 1 ? 'g2' : ''}">${comments.map((c) => html`<div class="card"><h3>${L(c.e)}</h3><div class="quotes">${groupQuotes(c.list).slice(0, 30).map(([q, k]) => html`<div class="quote">${q}${k > 1 ? html` <b class="mono" style="color:var(--gold)">×${k}</b>` : ''}</div>`)}</div></div>`)}</div>`);
+    out.push(sec(++n, t('Katılımcı görüşleri', 'Respondent comments'), t('Açık uçlu yanıtlar, en sık yazılandan başlayarak sıralanmıştır. Aynı görüşü yazan kişi sayısı ve oranı yanında gösterilir; tam liste en alttadır. Yanıtlar olduğu gibi, düzenlenmeden aktarılmıştır.', 'Open-ended answers ranked from most frequent. The number and share of people who wrote the same view is shown; the full list is at the bottom. Answers are shown verbatim.')));
+    out.push(html`${comments.map((c) => commentBlock(c, g.n))}`);
   }
 
   // KALİTE & METODOLOJİ
@@ -209,16 +229,42 @@ function header(base, a, g, ctx) {
       <div><div class="eyebrow">Analiz Pro<span class="gold">X</span> · ${L(base.name)}</div>
         <h1>${a.title}</h1>
         <div class="facts"><span><b>${ctx.org || ''}</b></span>
-          <span>${t('Geçerli yanıt', 'Valid responses')}: <b>${g.n}</b>${g.excluded ? ` / ${g.total}` : ''}</span>
+          <span>${t('Gelen yanıt', 'Responses')}: <b>${g.total}</b></span>
+          <span>${t('Rapora dahil', 'In report')}: <b>${g.n}</b></span>
           ${rate != null ? html`<span>${t('Yanıt oranı', 'Response rate')}: <b>${pct(rate)}</b></span>` : ''}
           ${dates.length ? html`<span>${t('Veri', 'Data')}: <b>${fmtDate(dates[0], lang)} – ${fmtDate(dates[dates.length - 1], lang)}</b></span>` : ''}
           <span>${t('Rapor', 'Report')}: <b>${fmtDate(new Date().toISOString(), lang)}</b></span></div></div>
       <div class="toolbar">
-        ${g.excluded ? html`<label class="check" style="margin:0"><input type="checkbox" id="inc" ${ctx.includeSuspect ? 'checked' : ''}> <span>${t('Şüpheli yanıtları dahil et', 'Include suspect responses')} (${g.excluded})</span></label>` : ''}
         <a class="btn sm no-print" href="#/guide/${base.key}">${raw(icon('info'))} ${t('Bu rapor nasıl okunur?', 'How to read this report')}</a>
         <button class="btn sm" id="print">${raw(icon('print'))} ${T('print')}</button>
       </div>
-    </div>`;
+    </div>
+    ${suspectLine(g, ctx)}`;
+}
+
+const flagShort = (k) => ({ attention: t('dikkat sorusu yanlış', 'failed attention check'), straight: t('tek düze işaretleme', 'straight-lining'), pattern: t('tek düze örüntü', 'monotonous pattern'),
+  speed: t('çok hızlı yanıt', 'too fast'), fast: t('hızlı yanıt', 'fast'), inconsistent: t('çelişkili yanıtlar', 'contradictory answers'), mixed: t('kısmi tutarsızlık', 'partial inconsistency'), empty: t('eksik yanıt', 'incomplete') })[k] || k;
+
+// Şüpheli yanıt bilgisi: raporu engellemez, küçük bir bilgi satırı olarak durur
+function suspectLine(g, ctx) {
+  const sus = (g.all || []).filter((s) => !(s.q.level === 'reliable' || s.q.level === 'caution'));
+  if (!sus.length || ctx.demo) return '';
+  const flags = {};
+  sus.forEach((s) => s.q.flags.forEach((f) => (flags[f.k] = (flags[f.k] || 0) + 1)));
+  const why = Object.entries(flags).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([k]) => flagShort(k)).join(', ');
+  const n = sus.length;
+  const msg = ctx.includeSuspect
+    ? (ctx.auto
+      ? t(`Geçerli yanıt az olduğu için şüpheli işaretlenen ${n} yanıt da rapora dahil edildi (${why}).`, `Because valid responses are few, ${n} flagged response(s) were also included (${why}).`)
+      : t(`Şüpheli işaretlenen ${n} yanıt rapora dahil (${why}).`, `${n} flagged response(s) are included (${why}).`))
+    : t(`${n} yanıt şüpheli işaretlendi (${why}) ve rapor dışında tutuldu.`, `${n} response(s) were flagged (${why}) and excluded.`);
+  return html`<div class="suspect-line no-print">${raw(icon('info'))}<span>${msg}</span>
+    <a href="#" id="inc">${ctx.includeSuspect ? t('Hariç tut', 'Exclude them') : t('Dahil et', 'Include them')}</a></div>`;
+}
+
+// Göze çarpan bilgi kutusu (anonimlik / veri yeterliliği)
+function glow(ic, title, body) {
+  return html`<div class="glow-note"><span class="gi">${raw(icon(ic))}</span><div><b>${title}</b><p>${body}</p></div></div>`;
 }
 
 // ------------------------------------------------------------ KPI
@@ -310,7 +356,7 @@ function qualityAndMethod(mod, g, ctx) {
         <div class="stat"><b style="color:var(--c-develop)">${q.caution}</b><span>${L(QUALITY_LEVEL.caution)}</span></div>
         <div class="stat"><b style="color:var(--c-critical)">${q.suspect + q.invalid}</b><span>${L(QUALITY_LEVEL.suspect)}</span></div>
       </div>
-      ${Object.entries(flags).map(([k, c]) => html`<div class="qi"><span>${L(QUALITY_TEXT[k]).replace(/[%(]?\{v\}[%)]?/g, '').replace(/\s+$/, '').replace(/:\s*$/, '')}</span><span class="v">${c}</span></div>`)}
+      ${Object.entries(flags).map(([k, c]) => html`<div class="qi"><span>${flagShort(k).replace(/^./, (x) => x.toLocaleUpperCase(getLang() === 'en' ? 'en' : 'tr'))}</span><span class="v">${c}</span></div>`)}
       ${alphas.length ? html`<h3 style="margin-top:18px">${t('Ölçek güvenilirliği (Cronbach α)', 'Scale reliability (Cronbach α)')}</h3>
         ${alphas.map((d) => html`<div class="qi"><span>${dimName(d)}</span><span class="v" style="color:${d.alpha >= 0.7 ? 'var(--c-excellent)' : d.alpha >= 0.6 ? 'var(--c-develop)' : 'var(--c-critical)'}">${num(d.alpha, 2)}</span></div>`)}` : ''}
     </div>
@@ -430,6 +476,53 @@ function stressSections(n, mod, g) {
 }
 
 // Aynı/benzer yorumları birleştir (büyük-küçük harf ve noktalama farkını yok say), en sık olan önce
+// Türkçe/İngilizce dolgu kelimeleri — "en sık geçen kelimeler"de sayılmaz
+const STOP = new Set(('ve veya ile ama fakat ancak çünkü için gibi kadar daha çok az en bir bu şu o da de ki mi mı mu mü ne neden nasıl her hiç olan olarak olması olsun oldu olur var yok değil ise ya yani hem de biz siz onlar ben sen bizim sizin onların benim kendi tüm bütün bazı şey şeyler zaman sonra önce artık hep sadece bile hala hâlâ gerek lazım daha the and or but for to of in on at is are was be it this that with as by from an a we you they our your not no yes very more most can should would will have has').split(' '));
+function topWords(list) {
+  const m = new Map();
+  list.forEach((q) => {
+    const seen = new Set();
+    q.toLocaleLowerCase('tr').replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).forEach((w) => {
+      if (w.length < 3 || STOP.has(w) || /^\d+$/.test(w)) return;
+      const st = stem(w);
+      if (seen.has(st)) return;
+      seen.add(st);
+      const e = m.get(st) || { n: 0, forms: {} };
+      e.n++;
+      e.forms[w] = (e.forms[w] || 0) + 1;
+      m.set(st, e);
+    });
+  });
+  // en sık yazılan biçimi göster ("maaş", "maaşlar" → "maaş")
+  return [...m.entries()].filter(([, e]) => e.n > 1).sort((a, b) => b[1].n - a[1].n).slice(0, 10)
+    .map(([st, e]) => [Object.entries(e.forms).sort((a, b) => b[1] - a[1] || a[0].length - b[0].length)[0][0], e.n]);
+}
+// Hafif Türkçe ek ayıklama (çoğul, iyelik, hâl ekleri) — yalnızca kelime sayımı için
+const SUFFIX = ['larının', 'lerinin', 'ların', 'lerin', 'ları', 'leri', 'lara', 'lere', 'larda', 'lerde', 'lardan', 'lerden', 'lar', 'ler', 'nın', 'nin', 'nun', 'nün', 'dan', 'den', 'tan', 'ten', 'da', 'de', 'ta', 'te', 'ın', 'in', 'un', 'ün', 'ya', 'ye', 'yı', 'yi', 'yu', 'yü', 'sı', 'si', 'su', 'sü', 'ı', 'i', 'u', 'ü', 'a', 'e'];
+function stem(w) {
+  if (!/[çğıöşü]|lar|ler/.test(w) && /^[a-z]+$/.test(w)) return w.replace(/(ies|es|s)$/, '') || w;   // İngilizce: çoğul eki
+  for (const sfx of SUFFIX) if (w.endsWith(sfx) && w.length - sfx.length >= 3) return w.slice(0, -sfx.length);
+  return w;
+}
+function commentBlock(c, nResp) {
+  const groups = groupQuotes(c.list);
+  const total = c.list.length;
+  const share = (k) => pct((100 * k) / total);
+  const top = groups.slice(0, 3);
+  const words = topWords(c.list);
+  const maxW = words[0]?.[1] || 1;
+  return html`<div class="card cm-card" style="margin-bottom:16px">
+    <div class="card-head"><h3>${L(c.e)}</h3><small>${total} ${t('yorum', 'comments')} · ${t('yorum yazan', 'commented')} ${pct((100 * total) / Math.max(1, nResp))}</small></div>
+    <div class="cm-top">${top.map(([q, k], i) => html`<div class="cm-rank ${i === 0 ? 'first' : ''}"><span class="rk">${i + 1}</span>
+      <div><p>${q}</p><div class="cm-bar"><i style="width:${(100 * k) / total}%"></i></div><small>${k} ${t('kişi', 'people')} · ${share(k)}</small></div></div>`)}</div>
+    ${words.length ? html`<h4 style="margin:18px 0 8px">${t('En sık geçen kelimeler', 'Most frequent words')}</h4>
+      <div class="cm-words">${words.map(([w, k]) => html`<span style="--w:${0.75 + (0.5 * k) / maxW}">${w} <b>${k}</b></span>`)}</div>
+      <p class="dim" style="font-size:12px;margin-top:6px">${t('Farklı cümlelerle aynı konuya değinen yorumları yakalamak için kelimelerin kaç yorumda geçtiği sayılır.', 'Counts how many comments mention each word, to catch the same topic written differently.')}</p>` : ''}
+    ${groups.length > 3 ? html`<details style="margin-top:14px"><summary>${t('Tüm yorumlar', 'All comments')} (${groups.length})</summary>
+      <div class="quotes" style="margin-top:10px">${groups.map(([q, k], i) => html`<div class="quote"><span class="mono dim">${i + 1}.</span> ${q}${k > 1 ? html` <b class="mono" style="color:var(--gold)">×${k}</b>` : ''}</div>`)}</div></details>` : ''}
+  </div>`;
+}
+
 function groupQuotes(list) {
   const m = new Map();
   for (const q of list) {

@@ -17,6 +17,8 @@ export const TRAITS = [
   { key: 'E', name: { tr: 'Dışadönüklük', en: 'Extraversion' }, low: { tr: 'Sakin, içe dönük', en: 'Reserved, reflective' }, high: { tr: 'Sosyal, enerjik', en: 'Sociable, energetic' } },
   { key: 'A', name: { tr: 'Uyumluluk', en: 'Agreeableness' }, low: { tr: 'Doğrudan, rekabetçi', en: 'Direct, competitive' }, high: { tr: 'İş birlikçi, empatik', en: 'Cooperative, empathetic' } },
   { key: 'S', name: { tr: 'Duygusal Denge', en: 'Emotional Stability' }, low: { tr: 'Hassas, tepkisel', en: 'Sensitive, reactive' }, high: { tr: 'Sakin, dayanıklı', en: 'Calm, resilient' } },
+  // HEXACO Dürüstlük–Alçakgönüllülük (IPIP kamu malı madde havuzundan uyarlanmıştır; Ashton & Lee, 2007)
+  { key: 'H', name: { tr: 'Dürüstlük & Alçakgönüllülük', en: 'Honesty–Humility' }, low: { tr: 'Çıkarcı, statü odaklı', en: 'Self-interested, status-driven' }, high: { tr: 'Dürüst, ilkeli, mütevazı', en: 'Sincere, fair, modest' } },
 ];
 
 export const PERS = items([
@@ -52,22 +54,28 @@ export const PERS = items([
   ['A6', 'A', 1, 'Tartışmalarda sert bir dil kullandığım olur.', 'I sometimes use harsh language in arguments.'],
   ['S6', 'S', 1, 'Ruh hâlim gün içinde çok değişir.', 'My mood changes a lot during the day.'],
   ['SD2', '_sd', 0, 'Söz verdiğim bir işi hiçbir zaman geciktirmedim.', 'I have never once been late with something I promised.'],
+  ['H1', 'H', 0, 'Terfi ya da zam almak için kimseye yağcılık yapmam.', "I wouldn't use flattery to get a raise or promotion."],
+  ['H2', 'H', 1, 'Yakalanmayacağımdan emin olsam, kurallara aykırı bir kazancı geri çevirmekte zorlanırdım.', "If I were sure I'd never be caught, I'd find it hard to turn down a gain that breaks the rules."],
+  ['H3', 'H', 0, 'Başkasının yaptığı işin övgüsünü üstlenmem.', "I don't take credit for work someone else did."],
+  ['H4', 'H', 1, 'Pahalı ve gösterişli şeylere sahip olmak benim için önemlidir.', 'Owning expensive, eye-catching things is important to me.'],
+  ['H5', 'H', 0, 'Başkalarından daha fazla saygıyı hak ettiğimi düşünmem.', "I don't think I deserve more respect than other people."],
+  ['H6', 'H', 1, 'İstediğimi elde etmek için gerekirse gerçeği biraz eğip bükerim.', "I'd bend the truth a little if it helped me get what I want."],
 ]);
 
 // Pozisyon aileleri: kişilik hedef aralıkları ve modül ağırlıkları
 export const FAMILIES = [
   { key: 'sales', name: { tr: 'Satış & müşteri ilişkileri', en: 'Sales & account management' },
-    w: { cog: 0.3, sjt: 0.35, pers: 0.35 }, range: { O: [40, 85], C: [55, 95], E: [65, 100], A: [50, 90], S: [55, 100] } },
+    w: { cog: 0.3, sjt: 0.35, pers: 0.35 }, range: { O: [40, 85], C: [55, 95], E: [65, 100], A: [50, 90], S: [55, 100], H: [55, 100] } },
   { key: 'production', name: { tr: 'Üretim & saha operasyonu', en: 'Production & field operations' },
-    w: { cog: 0.35, sjt: 0.35, pers: 0.3 }, range: { O: [30, 75], C: [65, 100], E: [30, 80], A: [50, 90], S: [55, 100] } },
+    w: { cog: 0.35, sjt: 0.35, pers: 0.3 }, range: { O: [30, 75], C: [65, 100], E: [30, 80], A: [50, 90], S: [55, 100], H: [55, 100] } },
   { key: 'manager', name: { tr: 'Yönetici & ekip lideri', en: 'Manager & team lead' },
-    w: { cog: 0.4, sjt: 0.35, pers: 0.25 }, range: { O: [55, 95], C: [65, 100], E: [55, 95], A: [45, 85], S: [65, 100] } },
+    w: { cog: 0.4, sjt: 0.35, pers: 0.25 }, range: { O: [55, 95], C: [65, 100], E: [55, 95], A: [45, 85], S: [65, 100], H: [55, 100] } },
   { key: 'office', name: { tr: 'Ofis & idari işler', en: 'Office & administration' },
-    w: { cog: 0.4, sjt: 0.3, pers: 0.3 }, range: { O: [35, 80], C: [65, 100], E: [35, 80], A: [55, 95], S: [55, 100] } },
+    w: { cog: 0.4, sjt: 0.3, pers: 0.3 }, range: { O: [35, 80], C: [65, 100], E: [35, 80], A: [55, 95], S: [55, 100], H: [55, 100] } },
   { key: 'technical', name: { tr: 'Teknik & mühendislik', en: 'Technical & engineering' },
-    w: { cog: 0.5, sjt: 0.25, pers: 0.25 }, range: { O: [60, 100], C: [60, 100], E: [25, 75], A: [40, 85], S: [55, 100] } },
+    w: { cog: 0.5, sjt: 0.25, pers: 0.25 }, range: { O: [60, 100], C: [60, 100], E: [25, 75], A: [40, 85], S: [55, 100], H: [55, 100] } },
   { key: 'service', name: { tr: 'Hizmet & ön büro', en: 'Service & front desk' },
-    w: { cog: 0.3, sjt: 0.4, pers: 0.3 }, range: { O: [35, 80], C: [55, 95], E: [55, 95], A: [65, 100], S: [60, 100] } },
+    w: { cog: 0.3, sjt: 0.4, pers: 0.3 }, range: { O: [35, 80], C: [55, 95], E: [55, 95], A: [65, 100], S: [60, 100], H: [55, 100] } },
 ];
 export const family = (k) => FAMILIES.find((f) => f.key === k) || FAMILIES[3];
 
@@ -85,6 +93,7 @@ export const PROBES = {
   E: { tr: 'Tanımadığınız bir grupla hızlıca ilişki kurmanız gereken bir örnek verir misiniz?', en: 'Give an example of having to build rapport quickly with people you did not know.' },
   A: { tr: 'Bir ekip arkadaşınızla anlaşmazlığa düştüğünüzde ilişkiyi nasıl korudunuz?', en: 'How did you protect the relationship when you disagreed with a teammate?' },
   S: { tr: 'Yoğun baskı altında çalıştığınız bir günü ve stresi nasıl yönettiğinizi anlatın.', en: 'Describe a day under heavy pressure and how you managed the stress.' },
+  H: { tr: 'Kuralları esnetmenin size veya ekibinize avantaj sağlayacağı bir durumla karşılaştınız mı? Ne yaptınız, neden?', en: 'Have you faced a situation where bending the rules would have helped you or your team? What did you do, and why?' },
 };
 
 // ---------------------------------------------------------------- PUANLAMA
@@ -173,8 +182,8 @@ export default {
     en: 'Cognitive ability, situational judgement and personality in one report, with a role-fit score.',
   },
   about: {
-    tr: 'Her aday için ayrı bir davet bağlantısı oluşturulur. Aday üç bölümü tek oturumda tamamlar: süreli bilişsel yetenek testi (sayısal, sözel, mantıksal, dikkat), iş hayatından durumsal yargı senaryoları ve Beş Faktör kişilik envanteri. Bilişsel ve durumsal bölümlerin cevap anahtarı yalnızca sunucuda tutulur; aday tarafında görünmez. Rapor, seçilen pozisyon ailesine göre ağırlıklandırılmış bir İş Uyum Skoru, kişilik profilinin hedef aralıklarla karşılaştırması, yanıt güvenilirliği ve mülakat için önerilen sorular içerir.',
-    en: 'A separate invitation link is created for each candidate, who completes three sections in one sitting: a timed cognitive ability test (numerical, verbal, logical, attention), workplace situational-judgement scenarios and a Big Five personality inventory. Answer keys for the cognitive and situational sections live only on the server and are never exposed to candidates. The report includes a Role Fit Score weighted for the selected job family, the personality profile against target ranges, response reliability and suggested interview questions.',
+    tr: 'Her aday için ayrı bir davet bağlantısı oluşturulur. Aday üç bölümü tek oturumda tamamlar: süreli bilişsel yetenek testi (sayısal, sözel, mantıksal, dikkat), iş hayatından durumsal yargı senaryoları ve Beş Faktör kişilik envanteri ile dürüstlük–alçakgönüllülük ölçeği. Bilişsel ve durumsal bölümlerin cevap anahtarı yalnızca sunucuda tutulur; aday tarafında görünmez. Rapor, seçilen pozisyon ailesine göre ağırlıklandırılmış bir İş Uyum Skoru, kişilik profilinin hedef aralıklarla karşılaştırması, yanıt güvenilirliği ve mülakat için önerilen sorular içerir.',
+    en: 'A separate invitation link is created for each candidate, who completes three sections in one sitting: a timed cognitive ability test (numerical, verbal, logical, attention), workplace situational-judgement scenarios, and a Big Five personality inventory with an honesty–humility scale. Answer keys for the cognitive and situational sections live only on the server and are never exposed to candidates. The report includes a Role Fit Score weighted for the selected job family, the personality profile against target ranges, response reliability and suggested interview questions.',
   },
   audience: 'candidate',
   minutes: 35,

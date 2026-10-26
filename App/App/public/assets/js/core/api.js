@@ -155,6 +155,45 @@ function supabaseAdapter() {
     async adminMsRevoke(id, note) {
       chk(await sb.rpc('admin_ms_revoke', { p_id: id, p_note: note || null }));
     },
+    // ---- Kurum Röntgeni + Derin Analiz (Claude)
+    async aiUsage(orgId) {
+      return chk(await sb.rpc('ai_usage', { p_org: orgId }));
+    },
+    async aiConsent(orgId) {
+      chk(await sb.rpc('ai_give_consent', { p_org: orgId }));
+    },
+    async listDeepAnalyses(orgId, { kind, assessmentId } = {}) {
+      let q = sb.from('deep_analyses').select('id,kind,assessment_id,created_at,created_by,content,model,meta').eq('org_id', orgId).order('created_at', { ascending: false }).limit(50);
+      if (kind) q = q.eq('kind', kind);
+      if (assessmentId) q = q.eq('assessment_id', assessmentId);
+      return chk(await q) || [];
+    },
+    async runDeepAnalysis({ org, kind, assessment_id, lang, data, sources }) {
+      const { data: res, error } = await sb.functions.invoke('deep-analysis', { body: { org, kind, assessment_id, lang, data, sources } });
+      if (error) {
+        let code = 'provider_failed';
+        try { code = (await error.context?.json())?.error || code; } catch {}
+        throw new Error(code);
+      }
+      if (res?.error) throw new Error(res.error);
+      return res;
+    },
+    async listXray(orgId) {
+      return chk(await sb.from('xray_snapshots').select('*').eq('org_id', orgId).order('created_at', { ascending: false }).limit(24)) || [];
+    },
+    async saveXray(orgId, overall, data) {
+      const u = (await sb.auth.getUser()).data?.user;
+      return chk(await sb.from('xray_snapshots').insert({ org_id: orgId, created_by: u?.id, overall, data }).select().single());
+    },
+    async deleteXray(id) {
+      chk(await sb.from('xray_snapshots').delete().eq('id', id));
+    },
+    async adminAiUsage() {
+      return chk(await sb.rpc('admin_ai_usage')) || [];
+    },
+    async adminSetAiLimits(orgId, xray, ik) {
+      chk(await sb.rpc('admin_set_ai_limits', { p_org: orgId, p_xray: xray, p_ik: ik }));
+    },
     async getAssessment(id) {
       return chk(await sb.from('assessments').select('*').eq('id', id).maybeSingle());
     },
@@ -492,6 +531,80 @@ function localAdapter() {
     async adminMsPurchases() {
       if (!isSuper()) err('forbidden');
       return db().ms || [];
+    },
+    // ---- Kurum Röntgeni + Derin Analiz (demo: Claude çağrılmaz, örnek metin üretilir)
+    async aiUsage(orgId) {
+      const d = db();
+      const o = d.orgs.find((x) => x.id === orgId) || {};
+      const m = new Date(); m.setDate(1); m.setHours(0, 0, 0, 0);
+      const mine = (d.deep || []).filter((x) => x.org_id === orgId && new Date(x.created_at) >= m);
+      const fut = (x) => !!x && new Date(x).getTime() > Date.now();
+      const nx = new Date(m); nx.setMonth(nx.getMonth() + 1);
+      return { paid: isSuper() || fut(o.sub_expires_at), consent: !!o.ai_consent_at, xray_used: mine.filter((x) => x.kind === 'xray').length, ik_used: mine.filter((x) => x.kind === 'ik').length,
+        xray_limit: o.ai_xray_limit ?? 2, ik_limit: o.ai_ik_limit ?? 50, renews_at: nx.toISOString() };
+    },
+    async aiConsent(orgId) {
+      const d = db();
+      if (!['owner', 'admin'].includes(role(d, orgId))) err('forbidden');
+      const o = d.orgs.find((x) => x.id === orgId);
+      o.ai_consent_at = new Date().toISOString();
+      save(d);
+    },
+    async listDeepAnalyses(orgId, { kind, assessmentId } = {}) {
+      return (db().deep || []).filter((x) => x.org_id === orgId && (!kind || x.kind === kind) && (!assessmentId || x.assessment_id === assessmentId))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+    async runDeepAnalysis({ org, kind, assessment_id, lang, data }) {
+      const u = await this.aiUsage(org);
+      if (!['owner', 'admin'].includes(role(db(), org))) err('forbidden');
+      if (!u.paid) err('paid_required');
+      if (!u.consent) err('consent_required');
+      if ((kind === 'xray' ? u.xray_used >= u.xray_limit : u.ik_used >= u.ik_limit)) err('limit_reached');
+      await new Promise((r) => setTimeout(r, 600));
+      const en = lang === 'en';
+      const content = kind === 'xray'
+        ? (en ? '## Overall Picture\n(DEMO MODE — in the live version this text is written by Claude from your data.)\n\n## Priority Moves\n- Example move [1]\n\n## References\n[1] Edmondson, A. (1999). Psychological safety and learning behavior in work teams. Administrative Science Quarterly, 44(2), 350–383.'
+              : '## Genel Durum\n(DEMO MODU — canlı sürümde bu metni verilerinizden Claude yazar.)\n\nVeride ' + Object.values(data?.alanlar || {}).filter((x) => typeof x === 'object').length + ' ölçülmüş alan var.\n\n## Öncelikli 3 Hamle\n- **Örnek hamle**: güven ve iletişim [1]\n\n## Kaynakça\n[1] Edmondson, A. (1999). Psychological safety and learning behavior in work teams. Administrative Science Quarterly, 44(2), 350–383.')
+        : (en ? '## Overall Assessment\n(DEMO MODE)\n\n## Interview Guide\n### Question 1\n- Why we ask: example\n- Strong answer: example\n- Warning sign: example'
+              : '## Genel Değerlendirme\n(DEMO MODU — canlı sürümde bu metni Claude yazar.)\n\n## Mülakat Rehberi\n### Soru 1\n- Neden soruyoruz: örnek\n- Güçlü bir cevap: örnek\n- Dikkat işareti: örnek\n\n## Kaynakça\n[1] Schmidt, F. L., & Hunter, J. E. (1998). Psychological Bulletin, 124(2), 262–274.');
+      const d = db();
+      const row = { id: uid(), org_id: org, kind, assessment_id: kind === 'ik' ? assessment_id : null, created_at: new Date().toISOString(), created_by: me().id, content, model: 'demo', meta: { lang } };
+      (d.deep ||= []).push(row);
+      save(d);
+      return { ok: true, ...row };
+    },
+    async listXray(orgId) {
+      return (db().xray || []).filter((x) => x.org_id === orgId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+    async saveXray(orgId, overall, data) {
+      const d = db();
+      if (!['owner', 'admin'].includes(role(d, orgId))) err('forbidden');
+      const row = { id: uid(), org_id: orgId, created_by: me().id, created_at: new Date().toISOString(), overall, data };
+      (d.xray ||= []).push(row);
+      save(d);
+      return row;
+    },
+    async deleteXray(id) {
+      const d = db();
+      d.xray = (d.xray || []).filter((x) => x.id !== id);
+      save(d);
+    },
+    async adminAiUsage() {
+      if (!isSuper()) err('forbidden');
+      const d = db();
+      return d.orgs.map((o) => {
+        const mine = (d.deep || []).filter((x) => x.org_id === o.id);
+        return { org_id: o.id, org_name: o.name, paid: !!o.sub_expires_at && new Date(o.sub_expires_at) > new Date(), consent: !!o.ai_consent_at,
+          xray_used: mine.filter((x) => x.kind === 'xray').length, xray_limit: o.ai_xray_limit ?? 2, ik_used: mine.filter((x) => x.kind === 'ik').length, ik_limit: o.ai_ik_limit ?? 50,
+          month_cost: 0, total_cost: 0, last_at: mine.at(-1)?.created_at || null };
+      });
+    },
+    async adminSetAiLimits(orgId, xray, ik) {
+      if (!isSuper()) err('forbidden');
+      const d = db();
+      const o = d.orgs.find((x) => x.id === orgId);
+      Object.assign(o, { ai_xray_limit: xray == null || xray < 0 ? null : xray, ai_ik_limit: ik == null || ik < 0 ? null : ik });
+      save(d);
     },
     async adminMsRevoke(id) {
       if (!isSuper()) err('forbidden');

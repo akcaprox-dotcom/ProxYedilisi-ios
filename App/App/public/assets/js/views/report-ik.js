@@ -9,6 +9,30 @@ import { crumbs } from './layout.js';
 import { reportNotice } from './report-notice.js';
 import { printPage } from '../core/native.js';
 import ik, { DOMAINS, TRAITS, PROBES, FLAG_TEXT, scoreCandidate, COG_MINUTES } from '../modules/ik.js';
+import { deepCard } from './deep.js';
+
+// Claude'a gidecek aday verisi: ad, e-posta, not GÖNDERİLMEZ — yalnızca pozisyon ve puanlar
+function candidatePayload(a, r, s) {
+  const pv = a.settings?.private || {};
+  const R = (v) => (v == null ? null : Math.round(v));
+  return {
+    data: {
+      aday: 'Aday (kimlik bilgisi paylaşılmaz)',
+      pozisyon: pv.position || '',
+      pozisyon_ailesi: L(s.fam.name),
+      uyum_agirliklari: s.fam.w,
+      is_uyum_skoru: R(s.fit),
+      bilissel: { genel: R(s.cog), alanlar: Object.fromEntries(DOMAINS.map((d) => [L(d.name), R(s.cogDomains?.[d.key])])), sure_sn: r.meta?.cog_seconds ?? null, sure_doldu: !!r.meta?.timeout, yanitlanan: s.cogAnswered + '/' + DOMAINS.length * 6 },
+      durumsal_yargi: R(s.sjt),
+      kisilik: Object.fromEntries(TRAITS.map((tr) => [L(tr.name), { puan: R(s.traits[tr.key]), hedef_aralik: s.fam.range[tr.key] }])),
+      kisilik_uyumu: R(s.persFit),
+      guvenilirlik: { puan: s.rel, bayraklar: s.flags.map((f) => L(FLAG_TEXT[f])) },
+      toplam_sure_dk: r.duration_sec ? Math.round(r.duration_sec / 60) : null,
+      olcek_notu: 'Puanlar 0–100. Bilişsel = doğru yüzdesi (norm yok). Kişilik 0–100 (yüksek = özelliğin yüksek olması; iyi/kötü değil, hedef aralıkla kıyaslanır).',
+    },
+    sources: [{ module: 'ik', id: a.id, title: pv.position || '', n: 1 }],
+  };
+}
 
 const sec = (n, title, lead = '') => html`<div class="rp-sec"><span class="n">${String(n).padStart(2, '0')}</span><h2>${title}</h2></div>${lead ? html`<p class="lead">${lead}</p>` : ''}`;
 const lvl = (v) => (v == null ? '' : v >= 70 ? t('yüksek', 'high') : v >= 40 ? t('orta', 'moderate') : t('düşük', 'low'));
@@ -22,6 +46,8 @@ const TRAIT_TEXT = {
        lo: { tr: 'Sakin ve odaklı; bağımsız, derinlemesine çalışma gerektiren işlerde güçlü.', en: 'Calm and focused; strong in independent, deep-work roles.' } },
   A: { hi: { tr: 'İş birlikçi, empatik ve güvene dayalı ilişkiler kurar; ekip uyumuna katkı sağlar.', en: 'Cooperative, empathetic, builds trust-based relationships; adds to team cohesion.' },
        lo: { tr: 'Doğrudan ve rekabetçi; zor müzakerelerde etkili olabilir, ekip içinde üslubu gözlenmeli.', en: 'Direct and competitive; can be effective in tough negotiations, tone within teams should be observed.' } },
+  H: { hi: { tr: 'Dürüst, kurallara ve adalete önem veren, statü ve gösteriş peşinde olmayan bir profil; güven gerektiren rollerde (finans, satın alma, kalite) olumlu.', en: 'Sincere, fair-minded and modest, not driven by status; a positive sign for trust-sensitive roles (finance, purchasing, quality).' },
+       lo: { tr: 'Kişisel kazanç ve statüye daha çok önem verebilir; güven gerektiren rollerde mülakatta etik ikilem soruları ve referanslarla doğrulanmalıdır.', en: 'May place more weight on personal gain and status; for trust-sensitive roles, verify with ethical-dilemma questions and references.' } },
   S: { hi: { tr: 'Baskı altında sakin, aksiliklerden çabuk toparlanır; stresli rollerde dayanıklı.', en: 'Calm under pressure, recovers quickly from setbacks; resilient in stressful roles.' },
        lo: { tr: 'Duygusal olarak daha hassas; yoğun baskı dönemlerinde destek ve net önceliklendirmeden yararlanır.', en: 'More emotionally sensitive; benefits from support and clear priorities under heavy pressure.' } },
 };
@@ -93,13 +119,18 @@ export function renderIkReport(root, a, resps, ctx) {
     <div class="card"><h3 style="color:var(--c-develop)">${t('Önerilen mülakat soruları', 'Suggested interview questions')}</h3>
       ${weak.map((x) => html`<div class="qi" style="grid-template-columns:1fr"><span><b>${x.label}</b><br><span class="muted">${L(PROBES[x.k])}</span></span></div>`)}</div></div>`);
 
+  // CLAUDE İLE DERİN ANALİZ VE MÜLAKAT REHBERİ (yalnızca ücretli abonelik)
+  const deep = !ctx.demo && state.org ? deepCard({ kind: 'ik', assessmentId: a.id, buildData: async () => candidatePayload(a, r, s) }) : null;
+  if (deep) out.push(deep.html);
+
   // 05 GÜVENİLİRLİK
   out.push(sec(++n, t('Yanıt güvenilirliği', 'Response reliability')));
   out.push(html`<div class="grid g2"><div class="card"><div class="stat"><b style="color:${bandColor(s.rel)}">${s.rel}</b><span>${t('güvenilirlik puanı (0–100)', 'reliability score (0–100)')}</span></div>
       ${s.flags.length ? html`<div class="insight" style="margin-top:14px">${s.flags.map((f) => html`<div class="ins" style="--ic:var(--c-develop)"><div><p>${L(FLAG_TEXT[f])}</p></div></div>`)}</div>` : html`<p class="muted" style="margin-top:12px">${t('Tutarsızlık, aşırı hız veya kendini olduğundan iyi gösterme belirtisi saptanmadı.', 'No signs of inconsistency, speeding or overly favourable self-presentation were detected.')}</p>`}</div>
-    <div class="card method"><p><b>${t('Yöntem.', 'Method.')}</b> ${t('Bilişsel ve durumsal yargı bölümleri sunucuda, aday tarafından görülemeyen cevap anahtarıyla puanlanır. Kişilik, 30 maddelik Beş Faktör envanteriyle (her özellik için 6 madde, yarısı ters ifadeli) ölçülür. Kişilik uyumu, her özelliğin pozisyon hedef aralığına uzaklığı (aralık dışındaki her puan için −2) üzerinden hesaplanır.', 'Cognitive and situational sections are scored on the server with an answer key the candidate cannot see. Personality is measured with a 30-item Big Five inventory (6 items per trait, half reversed). Personality fit is based on each trait\'s distance from the role\'s target range (−2 per point outside the range).')}</p>
+    <div class="card method"><p><b>${t('Yöntem.', 'Method.')}</b> ${t('Bilişsel ve durumsal yargı bölümleri sunucuda, aday tarafından görülemeyen cevap anahtarıyla puanlanır. Kişilik, 30 maddelik Beş Faktör envanteri (her özellik için 6 madde, yarısı ters ifadeli) ve 6 maddelik HEXACO Dürüstlük–Alçakgönüllülük ölçeğiyle (IPIP kamu malı madde havuzundan uyarlanmıştır) ölçülür. Kişilik uyumu, her özelliğin pozisyon hedef aralığına uzaklığı (aralık dışındaki her puan için −2) üzerinden hesaplanır.', 'Cognitive and situational sections are scored on the server with an answer key the candidate cannot see. Personality is measured with a 30-item Big Five inventory (6 items per trait, half reversed) and a 6-item HEXACO Honesty–Humility scale (adapted from the public-domain IPIP item pool). Personality fit is based on each trait\'s distance from the role\'s target range (−2 per point outside the range).')}</p>
       <p><b>${t('Kullanım uyarısı.', 'Use notice.')}</b> ${t('Bu rapor bir karar destek aracıdır. İşe alım kararı yalnızca bu rapora dayandırılmamalı; yapılandırılmış mülakat, referans ve iş örneği gibi kaynaklarla birlikte değerlendirilmelidir.', 'This report is a decision-support tool. Hiring decisions should not rest on it alone; combine it with structured interviews, references and work samples.')}</p></div></div>`);
 
   root.innerHTML = toStr(html`${head}${out}`) + toStr(reportNotice('ik'));
   $('#print', root).onclick = () => printPage(pv.candidate || a.title);
+  if (deep) deep.mount(root);
 }

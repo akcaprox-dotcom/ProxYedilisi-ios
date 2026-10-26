@@ -60,7 +60,8 @@ export async function renderSubscribe() {
   const features = [
     t('7 panelin tamamı: İşletme, Güven, İK, Vizyon, Senaryo, Stres, Toplantı', 'All 7 panels: Business, Trust, HR, Vision, Scenario, Stress, Meetings'),
     t('Sınırsız değerlendirme ve aday', 'Unlimited assessments and candidates'),
-    t('Tüm raporlar, PDF ve CSV dışa aktarma', 'All reports, PDF and CSV export'),
+    t('Tüm raporlar, Kurum Röntgeni, PDF ve CSV dışa aktarma', 'All reports, Organization X-Ray, PDF and CSV export'),
+    t('Claude yapay zekâ ile Derin Analiz: Kurum Röntgeni ayda 2, İK aday analizi ve mülakat rehberi ayda 50', 'Deep Analysis with Claude AI: Organization X-Ray 2/month, HR candidate analysis & interview guide 50/month'),
     t('Web, Windows, Android ve iOS\'ta aynı hesap', 'Same account on web, Windows, Android and iOS'),
   ];
 
@@ -73,7 +74,7 @@ export async function renderSubscribe() {
       ${isAdmin ? html`<div class="alert info">${raw(icon('key'))} ${t('Süper admin olarak tüm kurumlara her zaman tam erişiminiz var; deneme veya abonelik sizin için kısıt oluşturmaz. Yukarıdaki durum, bu kurumun normal bir kullanıcı için durumudur.', 'As super admin you always have full access; trial and subscription never limit you. The status above is what a normal user of this organization sees.')}</div>` : ''}
       <div class="card sub-card">
         <div class="sub-head"><div><div class="eyebrow">Analiz ProX</div><h2>ProX Yedilisi</h2><p class="muted">${t('Aylık abonelik · tek plan, tüm özellikler', 'Monthly subscription · one plan, everything included')}</p></div>
-          <div class="price" id="price">${canPurchase() ? raw(loader()) : ''}</div></div>
+          <div class="price" id="price">${canPurchase() ? loader() : ''}</div></div>
         <ul class="checks">${features.map((f) => html`<li>${raw(icon('check'))} ${f}</li>`)}</ul>
         <div id="buy"></div>
         <div class="form-err"></div>

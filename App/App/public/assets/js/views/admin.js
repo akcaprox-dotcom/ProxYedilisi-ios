@@ -15,9 +15,9 @@ export async function renderAdmin() {
   if (state.org?.viaAdmin) await refresh(); // başka kurumun gözünden çıkıp kendi hesabına dön
   if (!state.isSuper) return go('/app');
   const root = shell(loader(), renderAdmin);
-  let rows = [], sent = [], ms = [];
+  let rows = [], sent = [], ms = [], ai = [];
   try {
-    [rows, sent, ms] = await Promise.all([api.adminOverview(), api.adminSentMessages(), api.adminMsPurchases().catch(() => [])]);
+    [rows, sent, ms, ai] = await Promise.all([api.adminOverview(), api.adminSentMessages(), api.adminMsPurchases().catch(() => []), api.adminAiUsage().catch(() => [])]);
   } catch (err) {
     toast(errText(err), 'err');
   }
@@ -60,6 +60,7 @@ export async function renderAdmin() {
           <button class="btn sm" data-act="open" data-id="${r.org_id}">${raw(icon('eye'))} ${t('İncele', 'Inspect')}</button>
           <button class="btn sm" data-act="msg" data-id="${r.org_id}">${raw(icon('mail'))} ${t('Mesaj', 'Message')}</button>
           <button class="btn sm" data-act="access" data-id="${r.org_id}">${raw(icon('key'))} ${t('Süre', 'Access')}</button>
+          <button class="btn sm" data-act="ai" data-id="${r.org_id}">${raw(icon('spark'))} ${t('Claude limiti', 'Claude limit')}</button>
           ${r.status === 'frozen'
             ? html`<button class="btn sm cyan" data-act="activate" data-id="${r.org_id}">${raw(icon('play'))} ${t('Aktifleştir', 'Reactivate')}</button>`
             : html`<button class="btn sm" data-act="freeze" data-id="${r.org_id}">${raw(icon('lock'))} ${t('Dondur', 'Suspend')}</button>`}
@@ -76,6 +77,20 @@ export async function renderAdmin() {
         <td class="mono" style="font-size:11px">…${m.token_tail}</td>
         <td>${m.status === 'revoked' ? html`<span class="badge closed">${t('İptal', 'Revoked')}</span>` : html`<button class="btn sm danger" data-msrev="${m.id}">${t('İptal et', 'Revoke')}</button>`}</td></tr>`)}</tbody></table></div>`
       : html`<p class="dim">${t('Henüz Microsoft Store satın alımı yok.', 'No Microsoft Store purchases yet.')}</p>`}
+
+    <div class="rp-sec"><span class="n">✦</span><h2>${t('Claude Derin Analiz kullanımı', 'Claude Deep Analysis usage')}</h2></div>
+    <p class="muted" style="font-size:13px;margin-top:-6px">${t('Bu ayki kullanım ve tahmini maliyet (OpenRouter faturası esastır). Varsayılan limitler: Kurum Röntgeni ayda 2, İK aday ayda 50. "Limit" ile kurum bazında değiştirin; boş bırakılan alan varsayılana döner.', 'This month\'s usage and estimated cost (the OpenRouter invoice is authoritative). Defaults: X-Ray 2/month, HR candidate 50/month. Use "Limit" to change per organization; empty returns to default.')}</p>
+    ${(() => {
+      const used = ai.filter((x) => Number(x.xray_used) || Number(x.ik_used) || Number(x.total_cost) || x.xray_limit !== 2 || x.ik_limit !== 50);
+      const mc = ai.reduce((s, x) => s + Number(x.month_cost || 0), 0);
+      return html`<div class="row" style="gap:26px;margin:0 0 12px"><div class="stat"><b>$${mc.toFixed(2)}</b><span>${t('bu ay toplam', 'this month total')}</span></div>
+        <div class="stat"><b>${ai.reduce((s, x) => s + Number(x.xray_used) + Number(x.ik_used), 0)}</b><span>${t('analiz (bu ay)', 'analyses (this month)')}</span></div></div>
+      ${used.length ? html`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>${t('Kurum', 'Organization')}</th><th>${t('Ücretli', 'Paid')}</th><th class="num">${t('Röntgen', 'X-Ray')}</th><th class="num">${t('İK aday', 'HR cand.')}</th><th class="num">${t('Bu ay $', 'Month $')}</th><th class="num">${t('Toplam $', 'Total $')}</th><th>${t('Son', 'Last')}</th><th></th></tr></thead>
+        <tbody>${used.map((x) => html`<tr><td>${x.org_name}</td><td>${x.paid ? '✓' : '—'}</td><td class="num">${x.xray_used}/${x.xray_limit}</td><td class="num">${x.ik_used}/${x.ik_limit}</td>
+          <td class="num">${Number(x.month_cost || 0).toFixed(3)}</td><td class="num">${Number(x.total_cost || 0).toFixed(3)}</td><td>${x.last_at ? fmtDate(x.last_at, lang) : '—'}</td>
+          <td><button class="btn sm" data-ailim="${x.org_id}">${t('Limit', 'Limit')}</button></td></tr>`)}</tbody></table></div>`
+        : html`<p class="dim">${t('Henüz Derin Analiz kullanılmadı. Bir kuruma özel limit vermek için kurum satırındaki "Claude limiti" düğmesini kullanın.', 'No Deep Analysis used yet. Use the "Claude limit" button on an organization row to set a custom limit.')}</p>`}`;
+    })()}
 
     <div class="rp-sec"><span class="n">✉</span><h2>${t('Gönderilen mesajlar', 'Sent messages')}</h2></div>
     ${sent.length ? html`<div class="list">${sent.map((m) => html`<div class="msg">
@@ -111,6 +126,7 @@ export async function renderAdmin() {
     } else if (act === 'msg') messageSheet(r);
     else if (act === 'freeze') freezeSheet(r);
     else if (act === 'access') accessSheet(r);
+    else if (act === 'ai') aiLimitSheet(ai.find((x) => x.org_id === r.org_id) || { org_id: r.org_id, org_name: r.org_name, xray_limit: 2, ik_limit: 50 });
     else if (act === 'activate') {
       try {
         await api.adminSetOrgStatus(r.org_id, 'active');
@@ -121,6 +137,7 @@ export async function renderAdmin() {
       }
     } else if (act === 'delete') deleteSheet(r);
   }));
+  $$('[data-ailim]', root).forEach((b) => (b.onclick = () => aiLimitSheet(ai.find((x) => x.org_id === b.dataset.ailim))));
   $$('[data-msrev]', root).forEach((b) => (b.onclick = async () => {
     const ok = await confirmBox(t('Microsoft satın alımı iptal edilsin mi?', 'Revoke this Microsoft purchase?'),
       t('Bu kayıt artık erişim uzatmaz; kurumun başka etkin Microsoft kaydı yoksa Microsoft kaynaklı erişimi hemen kapanır. Yalnızca Partner Center\'da karşılığı olmayan kayıtlar için kullanın.', 'This record will no longer extend access; if the organization has no other active Microsoft record, its Microsoft-based access closes immediately. Use only for records without a matching Partner Center purchase.'),
@@ -298,4 +315,29 @@ export async function renderMessages() {
     const dot = document.querySelector('.topnav .dot-n');
     if (dot) dot.remove();
   }
+}
+
+// Kuruma özel Derin Analiz limitleri (boş = varsayılan)
+function aiLimitSheet(x) {
+  if (!x) return;
+  const s = sheet(html`<h3>${t('Derin Analiz limiti', 'Deep Analysis limit')} · ${x.org_name}</h3>
+    <form id="alf"><div class="form-err"></div>
+      <div class="grid g2">
+        <label class="field"><span>${t('Kurum Röntgeni / ay', 'X-Ray / month')}</span><input class="input" type="number" min="0" id="al-x" value="${x.xray_limit === 2 ? '' : x.xray_limit}" placeholder="2"></label>
+        <label class="field"><span>${t('İK aday / ay', 'HR candidate / month')}</span><input class="input" type="number" min="0" id="al-i" value="${x.ik_limit === 50 ? '' : x.ik_limit}" placeholder="50"></label>
+      </div>
+      <p class="dim" style="font-size:13px">${t('Boş bırakırsanız varsayılan limit (2 / 50) geçerli olur.', 'Leave empty for the default (2 / 50).')}</p>
+      <div class="row end"><button class="btn primary">${T('save')}</button></div></form>`);
+  $('#alf', s.el).onsubmit = async (e) => {
+    e.preventDefault();
+    const v = (id) => ($('#' + id, s.el).value === '' ? null : +$('#' + id, s.el).value);
+    try {
+      await api.adminSetAiLimits(x.org_id, v('al-x'), v('al-i'));
+      s.close();
+      toast(t('Limit kaydedildi.', 'Limit saved.'), 'ok');
+      renderAdmin();
+    } catch (err) {
+      showErr($('#alf', s.el), errText(err));
+    }
+  };
 }

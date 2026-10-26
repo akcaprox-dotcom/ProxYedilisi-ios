@@ -137,7 +137,7 @@ function pickText(mk, id, r) {
 function demoCandidate(seed) {
   const r = rng(seed * 104729);
   const answers = {};
-  const target = { O: 3.9, C: 4.1, E: 3.3, A: 3.6, S: 3.4 };
+  const target = { O: 3.9, C: 4.1, E: 3.3, A: 3.6, S: 3.4, H: 4.0 };
   for (const it of PERS) {
     let v = it.dim === '_sd' ? 2 + Math.round(r()) : clamp(Math.round(target[it.dim] + (r() - 0.5) * 1.6), 1, 5);
     if (it.rev) v = 6 - v;

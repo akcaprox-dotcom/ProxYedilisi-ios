@@ -2,13 +2,27 @@
 import { html, raw, toStr, $, $$, store, deviceToken, esc } from '../core/util.js';
 import { t, T, L, getLang, errText } from '../core/i18n.js';
 import { api } from '../core/api.js';
-import { icon, toast, loader, setBusy } from '../core/ui.js';
+import { icon, toast, loader, setBusy, sheet } from '../core/ui.js';
 import { getModule, effective } from '../modules/index.js';
 import { likertSteps, SCALES } from '../modules/common.js';
 import { COG, SJT, PERS, COG_MINUTES } from '../modules/ik.js';
-import { app, brand, langToggle, bindLang } from './layout.js';
+import { app, langToggle, bindLang } from './layout.js';
+import { DOCS } from '../content/legal.js';
 
 const KEY = (code) => 'apx.sv.' + code;
+const DONE = (code) => 'apx.done.' + code;
+// Katılımcı ekranında logo bağlantı DEĞİL: katılımcı yanlışlıkla uygulamanın ana sayfasına gitmesin
+const svBrand = () => html`<span class="brand"><img src="assets/img/logo.png" alt=""><b>Analiz Pro<i>X</i></b></span>`;
+
+// Aydınlatma metni anketten ayrılmadan alttan açılan pencerede gösterilir
+function showNotice() {
+  const d = DOCS['kvkk-respondent'];
+  const en = getLang() === 'en';
+  const s = sheet(html`<div class="eyebrow">Analiz ProX</div><h3 style="margin-top:6px">${en ? d.title.en : d.title.tr}</h3>
+    <div class="doc" style="max-height:60vh;overflow:auto">${raw(en ? d.en : d.tr)}</div>
+    <div class="row end" style="margin-top:14px"><button class="btn primary" id="nt-ok">${t('Kapat ve ankete dön', 'Close and return')}</button></div>`, { wide: true });
+  s.el.querySelector('#nt-ok').onclick = s.close;
+}
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
 function ikSteps() {
@@ -30,7 +44,7 @@ function ikSteps() {
 
 export async function renderSurvey({ code }) {
   const el = app();
-  el.innerHTML = loader();
+  el.innerHTML = toStr(loader());
   let pub;
   try {
     pub = await api.getPublic(code);
@@ -50,21 +64,26 @@ export async function renderSurvey({ code }) {
   const mod = effective(base, { public: pub.settings });
   const steps = pub.module === 'ik' ? ikSteps() : likertSteps(mod, pub.settings);
   const kiosk = !!pub.settings?.kiosk;
+  const small = !!pub.settings?.small;   // beklenen katılımcı 3'ten az → anonimlik vaadi yok
+  if (!kiosk && pub.module !== 'ik' && store.get(DONE(code))) {
+    return message(el, t('Yanıtınız alındı', 'Response received'), t('Bu cihazdan bu değerlendirmeye daha önce yanıt verildi. Her cihazdan yalnızca bir yanıt kabul edilir. Katılımınız için teşekkürler.', 'A response to this assessment was already submitted from this device. Only one response per device is accepted. Thank you for taking part.'), pub.org);
+  }
   const saved = store.get(KEY(code));
   const S = saved && saved.v === 2 ? saved : { v: 2, i: -1, answers: {}, meta: {}, timings: {}, start: null, cogStart: null, cogEnd: null, timeout: false };
   const persist = () => store.set(KEY(code), S);
   let tShown = 0, timerInt = null;
+  let view = () => show();   // dil değişince hangi ekranın yeniden çizileceği
 
   const total = steps.length;
   const frame = (inner, { progress = true } = {}) => {
     clearInterval(timerInt);
     const pct = S.i < 0 ? 0 : Math.round((100 * S.i) / total);
     el.innerHTML = toStr(html`<div class="sv">
-      <div class="sv-top">${brand()}<div class="t"><b>${pub.title}</b><span>${pub.org} · ${L(base.short)}</span></div>
+      <div class="sv-top">${svBrand()}<div class="t"><b>${pub.title}</b><span>${pub.org} · ${L(base.short)}</span></div>
         ${pub.module === 'ik' && steps[S.i]?.sec === 'cog' && S.cogStart && !S.cogEnd ? html`<span class="timer" id="tm"></span>` : ''}${langToggle()}</div>
       ${progress ? html`<div class="progress"><i style="width:${pct}%"></i></div>` : ''}
       <div class="sv-body">${inner}</div></div>`);
-    bindLang(el, () => show());
+    bindLang(el, () => view());
     tShown = performance.now();
     const tm = $('#tm', el);
     if (tm) {
@@ -110,6 +129,7 @@ export async function renderSurvey({ code }) {
   };
 
   function show() {
+    view = () => show();
     if (S.i < 0) return intro();
     if (S.i >= total) return finish();
     const st = steps[S.i];
@@ -272,14 +292,19 @@ export async function renderSurvey({ code }) {
       <h2 style="margin-top:10px">${pub.title}</h2>
       <p class="muted">${isIk
         ? t('Bu değerlendirme üç bölümden oluşur ve yaklaşık 35 dakika sürer. Kesintisiz bir zaman ve sessiz bir ortam seçin. Sonuçlarınız yalnızca sizi davet eden kurumun yetkilileriyle paylaşılır.', 'This assessment has three sections and takes about 35 minutes. Choose an uninterrupted time and a quiet place. Results are shared only with authorised staff of the inviting organization.')
-        : t(`${L(base.name)} çalışmasına hoş geldiniz. Yaklaşık ${base.minutes} dakika sürer. Adınız, e-postanız veya telefonunuz sorulmaz; yanıtlar yalnızca toplu olarak raporlanır.`, `Welcome to the ${L(base.name)} survey. It takes about ${base.minutes} minutes. Your name, email or phone are not collected; responses are only reported in aggregate.`)}</p>
-      <div class="dim-chips"><span class="chip"><b>${total - (isIk ? 3 : 0)}</b> ${T('questions')}</span><span class="chip"><b>~${base.minutes}</b> ${T('minutes')}</span>${!isIk ? html`<span class="chip">${raw(icon('lock'))} ${t('Anonim', 'Anonymous')}</span>` : ''}</div>
+        : small
+          ? t(`${L(base.name)} çalışmasına hoş geldiniz. Yaklaşık ${base.minutes} dakika sürer. Adınız, e-postanız veya telefonunuz sorulmaz. Ancak bu değerlendirme çok az kişiyle yapıldığı için kurumla paylaşılan rapordan yanıtlarınızın size ait olduğu anlaşılabilir.`, `Welcome to the ${L(base.name)} survey. It takes about ${base.minutes} minutes. Your name, email or phone are not collected. However, because very few people take part, your answers may be recognisable in the report shared with the organization.`)
+          : t(`${L(base.name)} çalışmasına hoş geldiniz. Yaklaşık ${base.minutes} dakika sürer. Adınız, e-postanız veya telefonunuz sorulmaz; yanıtlar yalnızca toplu olarak raporlanır.`, `Welcome to the ${L(base.name)} survey. It takes about ${base.minutes} minutes. Your name, email or phone are not collected; responses are only reported in aggregate.`)}</p>
+      <div class="dim-chips"><span class="chip"><b>${total - (isIk ? 3 : 0)}</b> ${T('questions')}</span><span class="chip"><b>~${base.minutes}</b> ${T('minutes')}</span>${!isIk && !small ? html`<span class="chip">${raw(icon('lock'))} ${t('Anonim', 'Anonymous')}</span>` : ''}</div>
       <p class="dim" style="font-size:13px">${t('İpucu: Her soruda size en uygun seçeneğe dokunun; otomatik olarak sonraki soruya geçilir. Bilgisayarda 1–5 tuşlarını kullanabilirsiniz. Yarıda bırakırsanız aynı cihazdan kaldığınız yerden devam edebilirsiniz.', 'Tip: tap the option that fits best and you will move on automatically. On a computer you can use keys 1–5. If you stop halfway, you can resume on the same device.')}</p>
       <label class="check"><input type="checkbox" id="ok"> <span>${raw(isIk
-        ? t('Verilerimin <a href="#/legal/kvkk-respondent" target="_blank">aydınlatma metninde</a> belirtilen amaçla işe alım değerlendirmesi için işlenmesine açık rıza veriyorum.', 'I give explicit consent for my data to be processed for recruitment assessment as described in the <a href="#/legal/kvkk-respondent" target="_blank">privacy notice</a>.')
-        : t('Katılımın gönüllü olduğunu ve yanıtlarımın <a href="#/legal/kvkk-respondent" target="_blank">aydınlatma metninde</a> belirtildiği şekilde anonim olarak işleneceğini anladım.', 'I understand participation is voluntary and my answers are processed anonymously as described in the <a href="#/legal/kvkk-respondent" target="_blank">privacy notice</a>.'))}</span></label>
+        ? t('Verilerimin <a href="#" class="nt-link">aydınlatma metninde</a> belirtilen amaçla işe alım değerlendirmesi için işlenmesine ve sonuçlarımın, adım ve iletişim bilgim paylaşılmadan, değerlendirme desteği için Claude yapay zekâ ile (yurt dışında) analiz edilebilmesine açık rıza veriyorum.', 'I give explicit consent for my data to be processed for recruitment assessment as described in the <a href="#" class="nt-link">privacy notice</a>, and for my results to be analysed with the Claude AI (abroad) for decision support, without my name or contact details.')
+        : small
+          ? t('Katılımın gönüllü olduğunu ve yanıtlarımın <a href="#" class="nt-link">aydınlatma metninde</a> belirtildiği şekilde işleneceğini anladım.', 'I understand participation is voluntary and my answers are processed as described in the <a href="#" class="nt-link">privacy notice</a>.')
+          : t('Katılımın gönüllü olduğunu ve yanıtlarımın <a href="#" class="nt-link">aydınlatma metninde</a> belirtildiği şekilde anonim olarak işleneceğini anladım.', 'I understand participation is voluntary and my answers are processed anonymously as described in the <a href="#" class="nt-link">privacy notice</a>.'))}</span></label>
       <div class="row end">${S.start ? html`<button class="btn" id="restart">${t('Baştan başla', 'Start over')}</button>` : ''}<button class="btn primary" id="go">${S.start ? t('Kaldığım yerden devam et', 'Resume') : t('Başla', 'Start')} ${raw(icon('next'))}</button></div>
     </div></div>`, { progress: false });
+    $$('.nt-link', el).forEach((a) => (a.onclick = (e) => { e.preventDefault(); e.stopPropagation(); showNotice(); }));
     $('#go', el).onclick = () => {
       if (!$('#ok', el).checked) return toast(t('Devam etmek için onay kutusunu işaretleyin.', 'Please tick the box to continue.'), 'err');
       if (!S.start) S.start = Date.now();
@@ -317,12 +342,14 @@ export async function renderSurvey({ code }) {
           device: kiosk ? null : (deviceToken() + ':' + code).slice(0, 64),
         });
         store.del(KEY(code));
+        if (!kiosk) store.set(DONE(code), Date.now());
         thanks();
       } catch (err) {
         setBusy(b, false);
         const m = String(err.message || '');
         if (m.includes('duplicate') || m.includes('completed')) {
           store.del(KEY(code));
+          if (!kiosk) store.set(DONE(code), Date.now());
           return message(el, t('Zaten yanıtlandı', 'Already answered'), errText(err), pub.org);
         }
         toast(errText(err), 'err');
@@ -331,6 +358,7 @@ export async function renderSurvey({ code }) {
   }
 
   function thanks() {
+    view = thanks;   // gönderimden sonra dil değişse de teşekkür ekranı kalır
     document.onkeydown = null;
     frame(html`<div class="sv-intro"><div class="card center">
       <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 14px;display:grid;place-items:center;background:rgba(61,214,176,.12);color:var(--c-excellent)">${raw(icon('check'))}</div>
@@ -346,7 +374,7 @@ export async function renderSurvey({ code }) {
 }
 
 function message(el, title, body, org) {
-  el.innerHTML = toStr(html`<div class="sv"><div class="sv-top">${brand()}<div class="t"><b>${org || ''}</b></div>${langToggle()}</div>
+  el.innerHTML = toStr(html`<div class="sv"><div class="sv-top">${svBrand()}<div class="t"><b>${org || ''}</b></div>${langToggle()}</div>
     <div class="sv-body"><div class="sv-intro"><div class="card center"><h2>${title}</h2><p class="muted">${body}</p></div></div></div></div>`);
   bindLang(el);
 }
