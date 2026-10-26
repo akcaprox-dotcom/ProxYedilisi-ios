@@ -83,6 +83,10 @@ export function renderIkReport(root, a, resps, ctx) {
   const w = s.fam.w;
   out.push(html`<p class="dim" style="font-size:12.5px;margin-top:10px">${t('İş uyum skoru', 'Role fit')} = ${Math.round(w.cog * 100)}% ${t('bilişsel', 'cognitive')} + ${Math.round(w.sjt * 100)}% ${t('durumsal yargı', 'situational')} + ${Math.round(w.pers * 100)}% ${t('kişilik uyumu', 'personality fit')} · ${t('Ağırlıklar pozisyon ailesine göredir', 'Weights depend on job family')}: ${L(s.fam.name)}</p>`);
 
+  // CLAUDE İLE DERİN ANALİZ VE MÜLAKAT REHBERİ (yalnızca ücretli abonelik) — özetin hemen altında, göze çarpan
+  const deep = !ctx.demo && state.org ? deepCard({ kind: 'ik', assessmentId: a.id, buildData: async () => candidatePayload(a, r, s) }) : null;
+  if (deep) out.push(deep.html);
+
   // 02 BİLİŞSEL
   if (s.cogDomains) {
     out.push(sec(++n, t('Bilişsel yetenek alanları', 'Cognitive domains'), t(`Her alanda doğru yanıt yüzdesi. Bilişsel bölüm ${COG_MINUTES} dakikalık süreyle uygulanmıştır.`, `Percentage correct in each domain. The cognitive section was timed at ${COG_MINUTES} minutes.`)));
@@ -119,9 +123,6 @@ export function renderIkReport(root, a, resps, ctx) {
     <div class="card"><h3 style="color:var(--c-develop)">${t('Önerilen mülakat soruları', 'Suggested interview questions')}</h3>
       ${weak.map((x) => html`<div class="qi" style="grid-template-columns:1fr"><span><b>${x.label}</b><br><span class="muted">${L(PROBES[x.k])}</span></span></div>`)}</div></div>`);
 
-  // CLAUDE İLE DERİN ANALİZ VE MÜLAKAT REHBERİ (yalnızca ücretli abonelik)
-  const deep = !ctx.demo && state.org ? deepCard({ kind: 'ik', assessmentId: a.id, buildData: async () => candidatePayload(a, r, s) }) : null;
-  if (deep) out.push(deep.html);
 
   // 05 GÜVENİLİRLİK
   out.push(sec(++n, t('Yanıt güvenilirliği', 'Response reliability')));

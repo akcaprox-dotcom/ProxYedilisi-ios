@@ -1,5 +1,5 @@
 // RAPOR — tüm Likert modülleri için ortak, modüle özel bölümlerle genişleyen profesyonel analiz raporu
-import { html, raw, toStr, $, esc, fmtDate, fmtNum, mean, round } from '../core/util.js';
+import { html, raw, toStr, $, $$, esc, fmtDate, fmtNum, mean, round } from '../core/util.js';
 import { t, T, L, getLang, errText } from '../core/i18n.js';
 import { api } from '../core/api.js';
 import { state } from '../core/state.js';
@@ -38,10 +38,9 @@ export async function renderReport({ id }) {
     if (!a) throw new Error('not_found');
     const resps = await api.listResponses(a.id);
     let siblings = null;
-    if (a.module === 'toplanti') {
-      const list = await api.listAssessments(a.org_id, 'toplanti');
-      siblings = { list, resps: await api.listResponses(list.map((x) => x.id)) };
-    }
+    // Aynı paneldeki diğer değerlendirmeler: birleştirme seçeneği (+ toplantı trendi)
+    const list = await api.listAssessments(a.org_id, a.module).catch(() => []);
+    siblings = { list, resps: a.module === 'toplanti' ? await api.listResponses(list.map((x) => x.id)) : null };
     draw(root, a, resps, { org: state.org?.name, siblings });
   } catch (err) {
     root.innerHTML = `<div class="empty">${esc(errText(err))}</div>`;
@@ -60,22 +59,61 @@ export function renderDemo({ key }) {
 // Rapor için gereken en az yanıt: beklenen katılımcı 1–2 ise o sayı, aksi hâlde 3
 export const minReportN = (a) => (a.target_n && a.target_n < 3 ? a.target_n : 3);
 
+// Birleştirilebilir mi? Soruları değiştiren ayarlar (vizyon öncelikleri, senaryo seçimi) aynı olmalı
+const itemKey = (a) => JSON.stringify({ p: a.settings?.public?.priorities || null, s: (a.settings?.public?.scenarios || []).slice().sort() });
+
 function draw(root, a, resps, ctx) {
   const m = getModule(a.module);
   if (a.module === 'ik') return renderIkReport(root, a, resps, ctx);
-  // Rapor her zaman dolu açılır: geçerli yanıt eşiğe yetmiyorsa şüpheli yanıtlar otomatik dahil edilir
   const em = effective(m, a.settings);
-  const strict = aggregate(em, resps, { includeSuspect: false });
-  let includeSuspect = strict.excluded > 0 && strict.n < minReportN(a);
-  const auto = includeSuspect;
+  // Filtre durumu: grup alanları, tarih aralığı, birleştirilen diğer değerlendirmeler
+  const F = { meta: {}, from: '', to: '', merge: [] };
+  const extra = new Map(); // birleştirilen değerlendirmelerin yanıtları
+  let manual = null;       // kullanıcı şüpheli dahil/hariç seçtiyse
+  const mergeable = (ctx.siblings?.list || []).filter((x) => x.id !== a.id && (x.response_count || 0) > 0 && itemKey(x) === itemKey(a));
+  const active = () => Object.values(F.meta).some(Boolean) || !!F.from || !!F.to || F.merge.length > 0;
+  const current = () => {
+    let rs = [...resps, ...F.merge.flatMap((id) => extra.get(id) || [])];
+    for (const [k, v] of Object.entries(F.meta)) if (v) rs = rs.filter((r) => r.meta?.[k] === v);
+    if (F.from) rs = rs.filter((r) => String(r.created_at).slice(0, 10) >= F.from);
+    if (F.to) rs = rs.filter((r) => String(r.created_at).slice(0, 10) <= F.to);
+    return rs;
+  };
   const paint = () => {
-    root.innerHTML = toStr(build(m, a, resps, { ...ctx, includeSuspect, auto })) + toStr(reportNotice(m.key));
+    const rs = current();
+    // Filtreli raporda anonimlik: seçilen alt kümede en az grup eşiği kadar yanıt (az katılımlı değerlendirmeler hariç)
+    const filtered = Object.values(F.meta).some(Boolean) || !!F.from || !!F.to;
+    const gmin = em.minGroupN ?? CONFIG.MIN_GROUP_N;
+    const minN = filtered && minReportN(a) >= 3 ? Math.max(3, gmin) : minReportN(a);
+    // Rapor her zaman dolu açılır: geçerli yanıt eşiğe yetmiyorsa şüpheli yanıtlar otomatik dahil edilir
+    const strict = aggregate(em, rs, { includeSuspect: false });
+    const autoInc = strict.excluded > 0 && strict.n < minN;
+    const includeSuspect = manual ?? autoInc;
+    root.innerHTML = toStr(build(m, a, rs, { ...ctx, includeSuspect, auto: manual == null && autoInc, minN, filtered, F, mergeable, active: active(), fieldsFor: () => filterFields(em, a, resps) })) + toStr(reportNotice(m.key));
     const tg = $('#inc', root);
     if (tg) tg.onclick = (e) => {
       e.preventDefault();
-      includeSuspect = !includeSuspect;
+      manual = !includeSuspect;
       paint();
     };
+    const ff = $('#flt', root);
+    if (ff) {
+      ff.onsubmit = async (e) => {
+        e.preventDefault();
+        $$('select[data-fm]', ff).forEach((x) => (F.meta[x.dataset.fm] = x.value));
+        F.from = $('#f-from', ff).value; F.to = $('#f-to', ff).value;
+        F.merge = $$('input[data-mg]:checked', ff).map((x) => x.dataset.mg);
+        const need = F.merge.filter((id) => !extra.has(id));
+        if (need.length) {
+          const got = await api.listResponses(need).catch(() => []);
+          need.forEach((id) => extra.set(id, got.filter((r) => r.assessment_id === id)));
+        }
+        manual = null;
+        paint();
+      };
+      const clr = $('#f-clr', ff);
+      if (clr) clr.onclick = () => { F.meta = {}; F.from = ''; F.to = ''; F.merge = []; manual = null; paint(); };
+    }
     const pr = $('#print', root);
     if (pr) pr.onclick = () => printPage(a.title);
   };
@@ -87,9 +125,12 @@ function build(base, a, resps, ctx) {
   const mod = effective(base, a.settings);
   const lang = getLang();
   const g = aggregate(mod, resps, { includeSuspect: ctx.includeSuspect });
-  const head = header(base, a, g, ctx);
-  const minN = minReportN(a);
+  const head = html`${header(base, a, g, ctx)}${filterBar(mod, a, ctx)}`;
+  const minN = ctx.minN ?? minReportN(a);
+  if (!g.total && ctx.active) return html`${head}<div class="empty">${t('Seçilen filtrelere uyan yanıt yok. Filtreleri değiştirin veya temizleyin.', 'No responses match the selected filters. Change or clear them.')}</div>`;
   if (!g.total) return html`${head}<div class="empty">${t('Henüz yanıt yok. Bağlantıyı paylaştıkça yanıtlar burada rapora dönüşür.', 'No responses yet. As you share the link, responses turn into a report here.')}</div>`;
+  if (g.n < minN && ctx.filtered) return html`${head}${glow('shield', t('Bu filtre anonimlik eşiğinin altında', 'This filter is below the anonymity threshold'),
+    t(`Seçilen filtrede ${g.n} yanıt var. Kimin ne cevap verdiğinin tahmin edilmemesi için filtreli rapor en az ${minN} yanıtla gösterilir. Filtreyi genişletin (ör. tarih aralığını büyütün ya da bir grup seçimini kaldırın).`, `The selected filter has ${g.n} responses. To prevent identifying individuals, a filtered report needs at least ${minN}. Widen the filter (e.g. a longer date range or fewer group selections).`))}`;
   if (g.n < minN) return html`${head}${glow('lock', t('Rapor için daha fazla yanıt gerekiyor', 'More responses needed for the report'),
     t(`Katılımcıların anonimliğini korumak için rapor en az ${minN} yanıtla oluşturulur. Şu an ${g.n} yanıt var; ${minN - g.n} yanıt daha gelince rapor kendiliğinden açılır. Daha sağlıklı sonuç için en az 5, ideal olarak 10 ve üzeri yanıt önerilir.`, `To protect respondents' anonymity, the report needs at least ${minN} responses. There are ${g.n} now; it opens automatically after ${minN - g.n} more. At least 5, ideally 10+, responses are recommended for reliable results.`)
     + (a.module === 'toplanti' ? ' ' + t('Not: Her cihazdan yalnızca bir yanıt kabul edilir. Toplantıyı tek cihazdan birden fazla kişi yanıtlayacaksa değerlendirmeyi "Ortak cihaz (kiosk) modu" açık olarak oluşturun.', 'Note: only one response per device is accepted. If several people answer on one device, create the assessment with "Shared device (kiosk) mode" on.') : ''))}`;
@@ -229,9 +270,10 @@ function header(base, a, g, ctx) {
       <div><div class="eyebrow">Analiz Pro<span class="gold">X</span> · ${L(base.name)}</div>
         <h1>${a.title}</h1>
         <div class="facts"><span><b>${ctx.org || ''}</b></span>
+          ${ctx.F?.merge?.length ? html`<span>${t('Birleştirilen', 'Merged')}: <b>${ctx.F.merge.length + 1} ${t('değerlendirme', 'assessments')}</b></span>` : ''}
           <span>${t('Gelen yanıt', 'Responses')}: <b>${g.total}</b></span>
           <span>${t('Rapora dahil', 'In report')}: <b>${g.n}</b></span>
-          ${rate != null ? html`<span>${t('Yanıt oranı', 'Response rate')}: <b>${pct(rate)}</b></span>` : ''}
+          ${rate != null && !ctx.active ? html`<span>${t('Yanıt oranı', 'Response rate')}: <b>${pct(rate)}</b></span>` : ''}
           ${dates.length ? html`<span>${t('Veri', 'Data')}: <b>${fmtDate(dates[0], lang)} – ${fmtDate(dates[dates.length - 1], lang)}</b></span>` : ''}
           <span>${t('Rapor', 'Report')}: <b>${fmtDate(new Date().toISOString(), lang)}</b></span></div></div>
       <div class="toolbar">
@@ -260,6 +302,43 @@ function suspectLine(g, ctx) {
     : t(`${n} yanıt şüpheli işaretlendi (${why}) ve rapor dışında tutuldu.`, `${n} response(s) were flagged (${why}) and excluded.`);
   return html`<div class="suspect-line no-print">${raw(icon('info'))}<span>${msg}</span>
     <a href="#" id="inc">${ctx.includeSuspect ? t('Hariç tut', 'Exclude them') : t('Dahil et', 'Include them')}</a></div>`;
+}
+
+// Filtre alanları: modülün grup soruları (birim listesi değerlendirmenin ayarından), yalnızca yanıtlarda geçen değerler
+function filterFields(mod, a, resps) {
+  return (mod.meta || []).map((f) => {
+    const present = new Set(resps.map((r) => r.meta?.[f.key]).filter(Boolean));
+    const opts = f.options ? f.options.filter((o) => present.has(o.v)).map((o) => ({ v: o.v, l: L(o) })) : [...present].sort().map((v) => ({ v, l: v }));
+    return { key: f.key, label: L(f.label), opts };
+  }).filter((f) => f.opts.length > 0);
+}
+
+// Raporun üstündeki filtre çubuğu (her raporda)
+function filterBar(mod, a, ctx) {
+  if (!ctx.F) return '';
+  const fields = ctx.fieldsFor ? ctx.fieldsFor() : [];
+  const F = ctx.F;
+  const chips = [
+    ...Object.entries(F.meta).filter(([, v]) => v).map(([k, v]) => {
+      const f = fields.find((x) => x.key === k);
+      return `${f?.label || k}: ${f?.opts.find((o) => o.v === v)?.l || v}`;
+    }),
+    F.from || F.to ? `${t('Tarih', 'Date')}: ${F.from ? fmtDate(F.from, getLang()) : '…'} – ${F.to ? fmtDate(F.to, getLang()) : '…'}` : '',
+    F.merge.length ? t(`+${F.merge.length} değerlendirme birleştirildi`, `+${F.merge.length} assessment(s) merged`) : '',
+  ].filter(Boolean);
+  return html`<details class="flt-box" ${ctx.active ? 'open' : ''}>
+    <summary>${raw(icon('search'))} ${t('Filtrele ve birleştir', 'Filter & merge')} ${chips.length ? html`<span class="flt-chips">${chips.map((c) => html`<span class="chip">${c}</span>`)}</span>` : html`<small class="dim">${t('Birim, grup, rol, tarih aralığı veya birden fazla değerlendirme', 'Unit, group, role, date range or several assessments')}</small>`}</summary>
+    <form id="flt" class="flt-form">
+      <div class="flt-grid">
+        ${fields.map((f) => html`<label class="field"><span>${f.label}</span><select class="input" data-fm="${f.key}"><option value="">${t('Tümü', 'All')}</option>${f.opts.map((o) => html`<option value="${o.v}" ${F.meta[f.key] === o.v ? 'selected' : ''}>${o.l}</option>`)}</select></label>`)}
+        <label class="field"><span>${t('Başlangıç tarihi', 'From')}</span><input class="input" type="date" id="f-from" value="${F.from}"></label>
+        <label class="field"><span>${t('Bitiş tarihi', 'To')}</span><input class="input" type="date" id="f-to" value="${F.to}"></label>
+      </div>
+      ${ctx.mergeable?.length ? html`<div class="field"><span>${t('Bu raporla birleştir (aynı paneldeki diğer değerlendirmeler)', 'Merge with this report (other assessments in this panel)')}</span>
+        <div class="flt-merge">${ctx.mergeable.map((x) => html`<label class="check"><input type="checkbox" data-mg="${x.id}" ${F.merge.includes(x.id) ? 'checked' : ''}> <span>${x.title} <small class="dim">· ${x.response_count} ${T('responses')} · ${fmtDate(x.created_at, getLang())} · ${x.code}</small></span></label>`)}</div></div>` : ''}
+      <p class="dim" style="font-size:12.5px;margin:4px 0 10px">${t(`Filtre uygulandığında bütün rapor seçilen yanıtlarla yeniden hesaplanır. Anonimlik için filtreli rapor en az ${Math.max(3, mod.minGroupN ?? CONFIG.MIN_GROUP_N)} yanıtla gösterilir.`, `With a filter, the whole report is recalculated for the selected responses. For anonymity, a filtered report needs at least ${Math.max(3, mod.minGroupN ?? CONFIG.MIN_GROUP_N)} responses.`)}</p>
+      <div class="row end">${ctx.active ? html`<button type="button" class="btn" id="f-clr">${t('Temizle', 'Clear')}</button>` : ''}<button class="btn primary">${t('Uygula', 'Apply')}</button></div>
+    </form></details>`;
 }
 
 // Göze çarpan bilgi kutusu (anonimlik / veri yeterliliği)

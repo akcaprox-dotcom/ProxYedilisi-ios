@@ -81,12 +81,24 @@ export async function renderDashboard() {
         <div class="stat" style="text-align:right;margin-left:18px"><b>${fmtNum(total, getLang())}</b><span>${T('responses')}</span></div>
       </div>
     </div>
-    <a class="card xr-tile" href="#/xray">
-      <span class="ic">${raw(icon('radar'))}</span>
-      <div><h3>${t('Kurum Röntgeni', 'Organization X-Ray')}</h3>
-        <p>${t('Tüm panellerin sonuçları tek ekranda: güçlü ve riskli alanlar, alanlar arası bağlantılar ve öncelikli aksiyonlar. Claude ile Derin Analiz abonelikte.', 'All panels on one screen: strong and risky areas, cross-area links and priority actions. Deep Analysis with Claude in the subscription.')}</p></div>
-      <span class="big">${(() => { const k = ['guven', 'vizyon', 'stres', 'senaryo', 'toplanti'].filter((x) => by[x]?.some((a) => a.response_count > 0)).length; return html`${k}/5<small>${t('alan ölçüldü', 'areas measured')}</small>`; })()}</span>
-    </a>
+    ${(() => {
+      const k = ['guven', 'vizyon', 'stres', 'senaryo', 'toplanti'].filter((x) => by[x]?.some((a) => a.response_count > 0)).length;
+      return html`<div class="card xr-hero-tile">
+        <div class="xr-ht-head">
+          <span class="ic">${raw(icon('radar'))}</span>
+          <div><div class="eyebrow">ProX ${t('Yedilisi', 'Seven')} · ${t('tüm paneller tek yerde', 'all panels in one place')}</div>
+            <h2>${t('Kurum Röntgeni ve Yapay Zekâ Analizi', 'Organization X-Ray and AI Analysis')}</h2></div>
+          <div class="big">${k}<span>/5</span><small>${t('alan ölçüldü', 'areas measured')}</small></div>
+        </div>
+        <div class="xr-ht-steps">
+          <div class="st"><b>1</b><div><h4>${t('Kurum Röntgeni', 'Organization X-Ray')} <span class="badge open">${t('Herkese açık', 'Included')}</span></h4>
+            <p>${t('Güven, Vizyon, Stres, Senaryo ve Toplantı panellerinizin sonuçları tek radar grafiğinde: en güçlü ve en zayıf alanınız, alanlar arası bulgular ve öncelikli 3 aksiyon. Otomatik hesaplanır.', 'Your Trust, Vision, Stress, Scenario and Meeting results on one radar: strongest and weakest area, cross-area findings and top 3 actions. Calculated automatically.')}</p></div></div>
+          <div class="st ai"><b>2</b><div><h4>${raw(icon('spark'))} ${t('Claude ile Derin Analiz', 'Deep Analysis with Claude')} <span class="badge kiosk">${t('Abonelikte', 'Subscription')}</span></h4>
+            <p>${t('Anthropic\'in Claude yapay zekâsı tüm sonuçlarınızı birlikte okuyup bir iş danışmanı gibi yorum raporu yazar: genel durum, kök nedenler, öncelikli hamleler ve 30-60-90 günlük yol haritası. Ayda 2 analiz.', 'Anthropic\'s Claude AI reads all your results together and writes an advisor-style report: overall picture, root causes, priority moves and a 30-60-90 day roadmap. 2 per month.')}</p></div></div>
+        </div>
+        <div class="row end" style="margin-top:4px"><a class="btn primary" href="#/xray">${raw(icon('radar'))} ${t('Kurum Röntgenini ve yapay zekâ analizini aç', 'Open X-Ray and AI analysis')} ${raw(icon('next'))}</a></div>
+      </div>`;
+    })()}
     <div class="tiles">${[...MODULES].sort((a, b) => a.order - b.order).map((m) => {
       const as = by[m.key];
       const n = as.reduce((s, a) => s + (a.response_count || 0), 0);
@@ -94,7 +106,7 @@ export async function renderDashboard() {
       const done = as.filter(isDone).length;
       const badge = m.key === 'ik'
         ? [open ? html`<span class="badge open">${open} ${t('bekliyor', 'pending')}</span>` : '', done ? html`<span class="badge done">${done} ${t('tamamlandı', 'completed')}</span>` : '']
-        : open ? html`<span class="badge open">${open} ${t('yanıt topluyor', 'collecting')}</span>` : '';
+        : open ? html`<span class="badge open">${open} ${t('anket açık', 'open')}</span>` : '';
       return html`<a class="tile" href="#/m/${m.key}">
         <div class="row between"><span class="ic">${raw(icon(m.icon))}</span><span class="row" style="gap:6px">${badge}</span></div>
         <h3>${L(m.name)}</h3><p>${L(m.tagline)}</p>

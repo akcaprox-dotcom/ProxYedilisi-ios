@@ -133,7 +133,9 @@ export async function renderXray() {
   // Her alan için seçenekler: yeterli yanıtlı, en güncel önce
   const options = {};
   for (const k of [...AREAS, 'isletme']) {
-    options[k] = list.filter((a) => a.module === k).map((a) => summarize(a, byA.get(a.id) || [])).filter((s) => s.ok).sort((x, y) => String(y.last).localeCompare(String(x.last)));
+    // En güncel önce; aynı gün içindekilerde daha çok yanıtı olan önce (daha güvenilir)
+    options[k] = list.filter((a) => a.module === k).map((a) => summarize(a, byA.get(a.id) || [])).filter((s) => s.ok)
+      .sort((x, y) => String(y.last).slice(0, 10).localeCompare(String(x.last).slice(0, 10)) || y.g.n - x.g.n || String(y.last).localeCompare(String(x.last)));
   }
   let pick = {};
   try { pick = JSON.parse(sessionStorage.getItem('apx-xray-' + state.org.id) || '{}'); } catch {}
@@ -171,7 +173,7 @@ export async function renderXray() {
         ${s ? html`<div><span class="sc" style="color:${bandColor(s.g.index.mean)}">${f0(s.g.index.mean)}</span>${delta(k, s.g.index.mean)}</div>
           <div class="src">${L(m.indexName || { tr: 'Endeks', en: 'Index' })} · ${s.g.n} ${T('responses')} · ${fmtDate(s.last, getLang())}</div>
           ${ageDays(s.last) > STALE_DAYS ? html`<div class="alert warn" style="margin:0;padding:6px 10px;font-size:12px">${t('Veri 6 aydan eski; yeniden ölçmeniz önerilir.', 'Data is older than 6 months; consider re-measuring.')}</div>` : ''}
-          ${opts.length > 1 ? html`<select class="input" data-pick="${k}">${opts.map((o) => html`<option value="${o.a.id}" ${o.a.id === s.a.id ? 'selected' : ''}>${o.a.title} · ${fmtDate(o.last, getLang())} · n=${o.g.n}</option>`)}</select>` : html`<div class="src">${s.a.title}</div>`}
+          ${opts.length > 1 ? html`<label class="src" style="margin-bottom:-4px">${t(`Bu alanda ${opts.length} değerlendirme var — kullanılacak olanı seçin:`, `${opts.length} assessments here — choose which to use:`)}</label><select class="input" data-pick="${k}">${opts.map((o) => html`<option value="${o.a.id}" ${o.a.id === s.a.id ? 'selected' : ''}>${o.g.n} ${T('responses')} · ${fmtDate(o.last, getLang())} · ${o.a.title} · ${o.a.code}</option>`)}</select>` : html`<div class="src">${s.a.title}</div>`}
           <a class="btn sm" href="#/a/${s.a.id}/report">${raw(icon('chart'))} ${T('report')}</a>`
         : html`<p class="dim" style="margin:0;font-size:14px">${t('Henüz ölçülmedi', 'Not measured yet')}</p>
           ${canWrite() ? html`<a class="btn sm primary" href="#/m/${k}/new">${raw(icon('plus'))} ${t('Başlat', 'Start')}</a>` : ''}`}
@@ -180,9 +182,10 @@ export async function renderXray() {
     root.innerHTML = toStr(html`
       ${crumbs([{ label: T('panels'), href: '#/app' }, { label: t('Kurum Röntgeni', 'Organization X-Ray') }])}
       <div class="page-head">
-        <div><div class="eyebrow">${state.org.name} · ProX ${t('Yedilisi', 'Seven')}</div><h1 style="margin-top:8px">${t('Kurum Röntgeni', 'Organization X-Ray')}</h1>
-          <p>${t('Tüm panellerinizin sonuçları tek ekranda: hangi alanda güçlü, hangi alanda riskli olduğunuzu ve alanların birbirini nasıl etkilediğini görün.', 'All your panels on one screen: see where you are strong, where you are at risk and how areas affect each other.')}</p></div>
+        <div><div class="eyebrow">${state.org.name} · ProX ${t('Yedilisi', 'Seven')}</div><h1 style="margin-top:8px">${t('Kurum Röntgeni ve Yapay Zekâ Analizi', 'Organization X-Ray and AI Analysis')}</h1>
+          <p>${t('Bu sayfa iki bölümden oluşur: (1) Kurum Röntgeni — tüm panellerinizin sonuçları tek ekranda, otomatik hesaplanır; (2) Claude ile Derin Analiz — Anthropic\'in Claude yapay zekâsı bu sonuçları bir iş danışmanı gibi yorumlar (kırmızı çerçeveli bölüm).', 'This page has two parts: (1) the Organization X-Ray — all your panel results on one screen, calculated automatically; (2) Deep Analysis with Claude — Anthropic\'s Claude AI interprets these results like a business advisor (red-framed section).')}</p></div>
         <div class="row">
+          ${measured.length || S.isletme ? html`<button class="btn primary" id="go-ai">${raw(icon('spark'))} ${t('Claude ile Derin Analiz', 'Deep Analysis with Claude')}</button>` : ''}
           ${canWrite() && measured.length ? html`<button class="btn" id="snap">${raw(icon('clock'))} ${t('Çekimi kaydet', 'Save snapshot')}</button>` : ''}
           <button class="btn" id="print">${raw(icon('print'))} ${T('print')}</button>
         </div>
@@ -201,6 +204,7 @@ export async function renderXray() {
           ${trendPts.length >= 2 ? html`<h4 style="margin:16px 0 4px">${t('Genel endeks trendi', 'Overall index trend')}</h4>${raw(trend(trendPts))}` : ''}
         </div>
       </div>
+      ${measured.length || S.isletme ? deep.html : ''}
       <div class="rp-sec"><span class="n">01</span><h2>${t('Alanlar', 'Areas')}</h2></div>
       <div class="xr-areas">${AREAS.map(areaCard)}</div>
       <div class="rp-sec"><span class="n">02</span><h2>${t('360° İşletme ve İK', '360° Business and HR')}</h2></div>
@@ -213,7 +217,7 @@ export async function renderXray() {
             <div class="stat" style="margin:10px 0"><b style="color:${bandColor(s.g.index.mean)}">${f0(s.g.index.mean)}</b><span>${s.a.title} · n=${s.g.n}${s.g.enps ? ' · eNPS ' + (s.g.enps.score > 0 ? '+' : '') + s.g.enps.score : ''}</span></div>
             ${ds.slice(0, 2).map((d) => html`<div class="qi"><span>${t('Güçlü', 'Strong')}: ${L(d.def.name)}</span><span class="v" style="color:${bandColor(d.mean)}">${f0(d.mean)}</span></div>`)}
             ${ds.slice(-2).reverse().map((d) => html`<div class="qi"><span>${t('Zayıf', 'Weak')}: ${L(d.def.name)}</span><span class="v" style="color:${bandColor(d.mean)}">${f0(d.mean)}</span></div>`)}
-            ${options.isletme.length > 1 ? html`<select class="input" data-pick="isletme" style="margin-top:10px">${options.isletme.map((o) => html`<option value="${o.a.id}" ${o.a.id === s.a.id ? 'selected' : ''}>${o.a.title} · ${fmtDate(o.last, getLang())}</option>`)}</select>` : ''}
+            ${options.isletme.length > 1 ? html`<select class="input" data-pick="isletme" style="margin-top:10px">${options.isletme.map((o) => html`<option value="${o.a.id}" ${o.a.id === s.a.id ? 'selected' : ''}>${o.g.n} ${T('responses')} · ${fmtDate(o.last, getLang())} · ${o.a.title} · ${o.a.code}</option>`)}</select>` : ''}
             <a class="btn sm" href="#/a/${s.a.id}/report" style="margin-top:10px">${raw(icon('chart'))} ${T('report')}</a>`;
         })()}</div>
         <div class="card"><h3>${L(getModule('ik').name)}</h3>
@@ -226,14 +230,14 @@ export async function renderXray() {
             : html`<p class="dim">${t('Son 90 günde tamamlanan aday değerlendirmesi yok.', 'No completed candidate assessments in the last 90 days.')}</p>`}
         </div>
       </div>
-      <div class="rp-sec"><span class="n">03</span><h2>${t('Bütünleşik özet', 'Integrated summary')}</h2></div>
+      <div class="rp-sec"><span class="n">03</span><h2>${t('Bütünleşik özet (otomatik)', 'Integrated summary (automatic)')}</h2></div>
       ${measured.length || S.isletme ? html`<div class="insight">
           ${ins.length ? ins.map((x) => html`<div class="ins" style="--ic:var(--c-${x.sev === 'excellent' ? 'excellent' : x.sev === 'develop' ? 'develop' : 'critical'})"><div><p>${x.text}</p></div></div>`)
             : html`<div class="ins" style="--ic:var(--c-strong)"><div><p>${t('Alanlar arasında belirgin bir risk örüntüsü görünmüyor. Ölçülmeyen alanları da ölçtükçe bu bölüm zenginleşir.', 'No marked cross-area risk pattern. This section gets richer as you measure more areas.')}</p></div></div>`}
         </div>
         ${acts.length ? html`<h3 style="margin:18px 0 8px">${t('Öncelikli 3 aksiyon', 'Top 3 actions')}</h3><div class="insight">${acts.map((x, i) => html`<div class="ins" style="--ic:${bandColor(x.score)}"><div><h4>${i + 1}. ${x.area} · ${x.dim} <small>${f0(x.score)}</small></h4><p>${x.act}</p></div></div>`)}</div>` : ''}`
         : html`<div class="empty sm"><p>${t('Özet için önce panellerde değerlendirme yapın.', 'Run assessments in the panels first.')}</p></div>`}
-      ${measured.length || S.isletme ? deep.html : ''}
+
       ${snaps.length ? html`<details style="margin-top:18px"><summary>${t('Kayıtlı çekimler', 'Saved snapshots')} (${snaps.length})</summary>
         <div class="list" style="margin-top:10px">${snaps.map((x) => html`<div class="li"><span>${fmtDate(x.created_at, getLang())}</span><span class="mono">${x.overall != null ? f0(x.overall) : '—'}</span>
           ${canWrite() ? html`<button class="btn sm ghost" data-delsnap="${x.id}" aria-label="${T('delete')}">${raw(icon('trash'))}</button>` : ''}</div>`)}</div></details>` : ''}`);
@@ -245,6 +249,8 @@ export async function renderXray() {
       draw();
     }));
     $('#print', root).onclick = () => printPage(t('Kurum Röntgeni', 'Organization X-Ray'));
+    const ga = $('#go-ai', root);
+    if (ga) ga.onclick = () => $('#deep-xray', root)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const sn = $('#snap', root);
     if (sn) sn.onclick = async () => {
       const areas = Object.fromEntries([...AREAS, 'isletme'].filter((k) => S[k]?.ok).map((k) => [k, { score: Math.round(S[k].g.index.mean * 10) / 10, id: S[k].a.id, title: S[k].a.title, n: S[k].g.n }]));
