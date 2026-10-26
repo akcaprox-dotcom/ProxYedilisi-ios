@@ -1,0 +1,41 @@
+{
+	"appId": "com.barisakca.analizprox",
+	"appName": "Analiz ProX",
+	"webDir": "web",
+	"backgroundColor": "#080b14",
+	"loggingBehavior": "none",
+	"android": {
+		"allowMixedContent": false,
+		"webContentsDebuggingEnabled": false
+	},
+	"ios": {
+		"contentInset": "never",
+		"scrollEnabled": true,
+		"backgroundColor": "#080b14",
+		"limitsNavigationsToAppBoundDomains": false
+	},
+	"plugins": {
+		"SystemBars": {
+			"insetsHandling": "css",
+			"initialViewportFitValueHint": "cover",
+			"style": "DARK"
+		},
+		"SplashScreen": {
+			"launchShowDuration": 900,
+			"launchAutoHide": true,
+			"backgroundColor": "#080b14",
+			"showSpinner": false,
+			"androidScaleType": "CENTER_INSIDE",
+			"splashFullScreen": false,
+			"splashImmersive": false
+		}
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"CAPBrowserPlugin",
+		"FilesystemPlugin",
+		"SharePlugin",
+		"SplashScreenPlugin",
+		"PurchasesPlugin"
+	]
+}

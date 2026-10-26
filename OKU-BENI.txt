@@ -1,0 +1,11 @@
+ANALIZ PROX — iOS PROJESİ (tek başına derlenir)
+
+Bu klasörün İÇERİĞİ bir GitHub deposunun köküne yüklenir (ör. akcaprox-dotcom/analizprox-ios, PRIVATE).
+Depo kökünde şunlar görünmeli:  codemagic.yaml · App/ · Plugins/ · capacitor-cordova-ios-plugins/ · debug.xcconfig
+
+Codemagic:
+ 1) Add application → bu depo → codemagic.yaml.
+ 2) Bu uygulamanın Environment variables → grup "code_signing" → CERTIFICATE_PRIVATE_KEY (diğer uygulamalarınızdakiyle aynı).
+ 3) GitHub'da Codemagic uygulaması "Only select repositories" ise bu depoyu listeye ekleyin.
+ 4) Start new build → ios-release. IPA App Store Connect'e yüklenir.
+Her yeni yüklemede codemagic.yaml → BUILD_NO +1.
