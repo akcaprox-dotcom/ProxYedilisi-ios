@@ -768,3 +768,9 @@ details summary { cursor: pointer; color: var(--cyan); font-size: 14px; }
 .deep-doc h4 + p { margin: 6px 0 8px; padding: 10px 14px; border-left: 3px solid var(--gold); border-radius: 8px; background: rgba(232, 174, 73, .08); }
 .deep-doc h4 + p b { font-weight: 600; }
 @media print { .deep-doc h4 + p { background: #fdf6e7 !important; } }
+/* Süper admin: kullanım satırı ve şüpheli bayrağı */
+.usage-line { margin-top: 6px; gap: 6px 10px; flex-wrap: wrap; }
+.usage-line .chip { padding: 1px 8px; border-radius: 999px; background: rgba(125, 134, 166, .14); font-size: 12px; }
+.badge.flag { background: rgba(240, 138, 75, .16); color: var(--c-risk); border: 0; cursor: pointer; }
+.fair-use { font-size: 12.5px; line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 12px; }
+.fair-use svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }

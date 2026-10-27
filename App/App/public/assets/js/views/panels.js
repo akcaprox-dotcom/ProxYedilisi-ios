@@ -319,6 +319,7 @@ export function renderNew({ key }) {
           <label class="field"><span>${t('Kapanış tarihi (isteğe bağlı)', 'Closing date (optional)')}</span><input class="input" type="date" id="closes"></label>
         </div>` : ''}
       <div class="alert warn" id="small-warn" style="display:none">${t('Katılımcı sayısı 3\'ten az: yanıtlar anonim kalmaz, rapor kişinin cevaplarını gösterir. Katılımcının giriş ekranında da bu durum açıkça belirtilir.', 'Fewer than 3 respondents: answers are not anonymous and the report shows the person\'s answers. Respondents are told this on the start screen.')}</div>
+      <p class="dim fair-use">${raw(icon('shield'))} ${t('Adil kullanım: Abonelik tek işletme içindir. Kısa sürede çok sayıda değerlendirme açılması gibi olağan dışı kullanımlar güvenliğiniz için incelenir; gerekirse erişim askıya alınabilir.', 'Fair use: the subscription covers one business. Unusual usage, such as many assessments created in a short time, is reviewed for your security and access may be suspended if needed.')}</p>
       <div class="row end"><a class="btn" href="#/m/${key}">${T('cancel')}</a><button class="btn primary" id="go">${t('Oluştur ve bağlantıyı al', 'Create and get link')}</button></div>
     </form>`);
   const f = $('#f', root);

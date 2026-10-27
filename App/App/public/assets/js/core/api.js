@@ -89,6 +89,18 @@ function supabaseAdapter() {
     async adminOverview() {
       return chk(await sb.rpc('admin_overview'));
     },
+    async adminUsageStats() {
+      return chk(await sb.rpc('admin_usage_stats'));
+    },
+    async adminOrgActivity(orgId) {
+      return chk(await sb.rpc('admin_org_activity', { p_org: orgId }));
+    },
+    async adminFlagList() {
+      return chk(await sb.rpc('admin_flag_list'));
+    },
+    async adminMarkReviewed(orgId) {
+      chk(await sb.rpc('admin_mark_reviewed', { p_org: orgId }));
+    },
     // ---------- kurum ----------
     async myOrgs() {
       return chk(await sb.rpc('my_orgs')) || [];
@@ -404,6 +416,33 @@ function localAdapter() {
     async isSuperAdmin() {
       const u = me();
       return !!u && db().supers.includes(u.id);
+    },
+    async adminUsageStats() {
+      if (!isSuper()) err('forbidden');
+      const d = db(), now = Date.now(), DAY = 864e5, out = {};
+      for (const a of d.assessments) {
+        const k = a.org_id + '|' + a.module, age = now - new Date(a.created_at);
+        const o = (out[k] ||= { org_id: a.org_id, module: a.module, d1: 0, d7: 0, d30: 0, open_now: 0, total: 0, resp30: 0, last_created: a.created_at });
+        o.total++; if (age < DAY) o.d1++; if (age < 7 * DAY) o.d7++; if (age < 30 * DAY) o.d30++;
+        if (a.status === 'open') o.open_now++;
+        if (a.created_at > o.last_created) o.last_created = a.created_at;
+        o.resp30 += d.responses.filter((r) => r.assessment_id === a.id && now - new Date(r.created_at) < 30 * DAY).length;
+      }
+      return Object.values(out);
+    },
+    async adminOrgActivity(orgId) {
+      if (!isSuper()) err('forbidden');
+      const d = db();
+      return d.assessments.filter((a) => a.org_id === orgId).sort((x, y) => (x.created_at < y.created_at ? 1 : -1)).slice(0, 200)
+        .map((a) => ({ id: a.id, module: a.module, title: a.title, created_at: a.created_at, status: a.status, responses: d.responses.filter((r) => r.assessment_id === a.id).length, created_by_name: (d.profiles.find((p) => p.id === a.created_by) || {}).full_name }));
+    },
+    async adminFlagList() {
+      if (!isSuper()) err('forbidden');
+      return Object.entries(db().flagReviews || {}).map(([org_id, reviewed_at]) => ({ org_id, reviewed_at }));
+    },
+    async adminMarkReviewed(orgId) {
+      if (!isSuper()) err('forbidden');
+      const d = db(); d.flagReviews = d.flagReviews || {}; d.flagReviews[orgId] = new Date().toISOString(); save(d);
     },
     async adminOverview() {
       if (!isSuper()) err('forbidden');
