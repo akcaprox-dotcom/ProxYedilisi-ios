@@ -38,7 +38,7 @@ export const CONFIG = {
   STORE_LINKS: {
     play: '',       // https://play.google.com/store/apps/details?id=com.barisakca.analizprox
     apple: '',      // https://apps.apple.com/tr/app/analiz-prox/id..........
-    microsoft: '',  // https://apps.microsoft.com/detail/..........
+    microsoft: 'https://apps.microsoft.com/detail/9n0r7lrgb1hw',
   },
 };
 

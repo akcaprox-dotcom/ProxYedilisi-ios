@@ -774,3 +774,8 @@ details summary { cursor: pointer; color: var(--cyan); font-size: 14px; }
 .badge.flag { background: rgba(240, 138, 75, .16); color: var(--c-risk); border: 0; cursor: pointer; }
 .fair-use { font-size: 12.5px; line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 12px; }
 .fair-use svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.store-btn.soon { opacity: .55; cursor: default; }
+.store-btn.soon:hover { border-color: var(--line-2); }
+.store-btn.soon small { color: var(--gold); }
+.deep-meta .lang-chip { font: 500 11px/1 var(--f-mono); letter-spacing: .1em; padding: 4px 7px; border-radius: 6px; background: rgba(125,134,166,.16); color: var(--ink-2); }
+.deep-lang { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--gold); border-radius: 6px; background: rgba(232,174,73,.07); font-size: 13px; color: var(--ink-2); }

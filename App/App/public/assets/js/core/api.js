@@ -2,6 +2,22 @@
 import { CONFIG, DEMO_MODE } from '../config.js';
 import { store, uid, normalizePhone, isEmail } from './util.js';
 
+// "Beni hatırla": işaretliyse oturum kalıcı (localStorage), değilse tarayıcı/uygulama
+// kapanınca biter (sessionStorage). Varsayılan: uygulamalarda hatırla, web'de hatırlama.
+const isApp = () => !!window.Capacitor?.isNativePlatform?.();
+export const getRemember = () => { try { const v = localStorage.getItem('apx.remember'); return v == null ? isApp() : v === '1'; } catch { return true; } };
+export const setRemember = (on) => { try { localStorage.setItem('apx.remember', on ? '1' : '0'); } catch { /* yok say */ } };
+const authStorage = {
+  getItem(k) { try { return sessionStorage.getItem(k) ?? localStorage.getItem(k); } catch { return null; } },
+  setItem(k, v) {
+    try {
+      if (getRemember()) { localStorage.setItem(k, v); sessionStorage.removeItem(k); }
+      else { sessionStorage.setItem(k, v); localStorage.removeItem(k); }
+    } catch { /* yok say */ }
+  },
+  removeItem(k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch { /* yok say */ } },
+};
+
 const authListeners = new Set();
 const emitAuth = (s) => authListeners.forEach((f) => f(s));
 
@@ -10,7 +26,7 @@ const emitAuth = (s) => authListeners.forEach((f) => f(s));
 // =================================================================
 function supabaseAdapter() {
   const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'apx.auth' },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'apx.auth', storage: authStorage },
   });
   const chk = ({ data, error }) => {
     if (error) throw error;
@@ -272,7 +288,8 @@ function localAdapter() {
   const err = (m) => {
     throw new Error(m);
   };
-  const sess = () => store.get(SKEY);
+  const sess = () => { const v = authStorage.getItem(SKEY); try { return v ? JSON.parse(v) : null; } catch { return null; } };
+  const setSess = (x) => authStorage.setItem(SKEY, JSON.stringify(x));
   const me = () => {
     const s = sess();
     return s ? db().users.find((u) => u.id === s.user.id) : null;
@@ -332,7 +349,7 @@ function localAdapter() {
       if (!u) err('Invalid OTP');
       u.confirmed = true;
       save(d);
-      store.set(SKEY, mkSession(u));
+      setSess(mkSession(u));
       emitAuth(sess());
       return { session: sess() };
     },
@@ -344,12 +361,12 @@ function localAdapter() {
       const u = findUser(d, identifier);
       if (!u || u.pw !== (await hash(password))) err('Invalid login credentials');
       if (!u.confirmed) err(u.email ? 'Email not confirmed' : 'Phone not confirmed');
-      store.set(SKEY, mkSession(u));
+      setSess(mkSession(u));
       emitAuth(sess());
       return { session: sess() };
     },
     async signOut() {
-      store.del(SKEY);
+      authStorage.removeItem(SKEY);
       emitAuth(null);
     },
     async sendReset(identifier) {
@@ -374,7 +391,7 @@ function localAdapter() {
       if (token !== OTP) err('Invalid OTP');
       const u = findUser(db(), identifier);
       if (!u) err('Invalid OTP');
-      store.set(SKEY, mkSession(u));
+      setSess(mkSession(u));
       emitAuth(sess());
       return { session: sess() };
     },

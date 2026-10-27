@@ -1,7 +1,7 @@
 // KİMLİK: giriş · kayıt · doğrulama · şifremi unuttum · kurum oluşturma · hesabım
 import { html, raw, toStr, $, isEmail, isPhone, normalizePhone, fmtDate } from '../core/util.js';
 import { t, T, errText, getLang, setLang } from '../core/i18n.js';
-import { api } from '../core/api.js';
+import { api, getRemember, setRemember } from '../core/api.js';
 import { state, refresh } from '../core/state.js';
 import { icon, toast, pwField, bindPw, otpField, bindOtp, setBusy, showErr, confirmBox } from '../core/ui.js';
 import { go } from '../core/router.js';
@@ -36,7 +36,8 @@ export function renderLogin(_, q) {
       <label class="field"><span>${T('phone')}</span>
         <input class="input" id="idf" type="tel" autocomplete="username" inputmode="tel" required placeholder="05xx xxx xx xx"></label>
       ${pwField('pw', T('password'))}
-      <div class="row between" style="margin:-4px 0 18px"><span></span><a href="#/forgot">${T('forgot')}</a></div>
+      <div class="row between" style="margin:-4px 0 18px"><label class="check" style="margin:0"><input type="checkbox" id="rem" ${getRemember() ? 'checked' : ''}> <span>${t('Beni hatırla', 'Remember me')}</span></label><a href="#/forgot">${T('forgot')}</a></div>
+      <p class="dim" style="font-size:12px;margin:-10px 0 16px">${t('İşaretlemezseniz tarayıcıyı ya da uygulamayı kapattığınızda oturumunuz kapanır. Ortak kullanılan cihazlarda işaretlemeyin.', 'If unchecked, you are signed out when you close the browser or app. Do not tick on shared devices.')}</p>
       <button class="btn primary block" id="go">${T('login')}</button>
     </form>
     <div class="foot">${t('Hesabınız yok mu?', "Don't have an account?")} <a href="#/register${q?.next ? '?next=' + encodeURIComponent(q.next) : ''}">${T('register')}</a></div>`, () => renderLogin(_, q));
@@ -49,6 +50,7 @@ export function renderLogin(_, q) {
     const b = $('#go', card);
     setBusy(b, true);
     try {
+      setRemember($('#rem', card).checked);
       await api.signIn(normalizePhone(idf), pw);
       await refresh();
       go(state.orgs.length ? nextOf(q) : '/onboarding');

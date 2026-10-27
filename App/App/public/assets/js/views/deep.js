@@ -63,8 +63,11 @@ const AI_NOTE = (kind) => kind === 'ik'
 
 function analysisView(a, title) {
   return html`<article class="deep-doc" data-id="${a.id}">
-    <div class="deep-meta"><span class="ai-chip">${raw(icon('spark'))} Claude</span><span>${fmtDate(a.created_at, getLang())} · ${new Date(a.created_at).toLocaleTimeString(getLang() === 'en' ? 'en-GB' : 'tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+    <div class="deep-meta"><span class="ai-chip">${raw(icon('spark'))} Claude</span><span class="lang-chip">${(a.meta?.lang || 'tr').toUpperCase()}</span><span>${fmtDate(a.created_at, getLang())} · ${new Date(a.created_at).toLocaleTimeString(getLang() === 'en' ? 'en-GB' : 'tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
       <button class="btn sm no-print" data-print="${a.id}">${raw(icon('print'))} ${t('PDF olarak kaydet', 'Save as PDF')}</button></div>
+    ${(a.meta?.lang || 'tr') !== getLang() ? html`<p class="deep-lang no-print">${(a.meta?.lang || 'tr') === 'tr'
+      ? t('', 'This analysis was generated in Turkish. To get it in English, create a new analysis while English is selected (uses one analysis credit).')
+      : t('Bu analiz İngilizce oluşturuldu. Türkçesi için dil Türkçe seçiliyken yeni bir analiz oluşturun (bir analiz hakkı kullanılır).', '')}</p>` : ''}
     <div class="deep-body">${raw(markdown(a.content))}</div>
     <p class="deep-note">${AI_NOTE(a.kind)}</p>
   </article>`;
@@ -142,7 +145,7 @@ export function deepCard({ kind, assessmentId = null, buildData, intro }) {
       ${usage.paid && !left ? html`<div class="alert warn" style="margin-top:12px">${t('Bu ayki analiz hakkınız doldu. Kayıtlı analizlerinizi aşağıdan görüntüleyebilirsiniz.', 'This month\'s quota is used up. You can still view your saved analyses below.')}</div>` : ''}
       <div id="${id}-out">${list[0] ? analysisView(list[0]) : ''}</div>
       ${list.length > 1 ? html`<details class="deep-hist"><summary>${t('Önceki analizler', 'Earlier analyses')} (${list.length - 1})</summary>
-        <div class="list" style="margin-top:10px">${list.slice(1).map((a) => html`<div class="li"><span>${fmtDate(a.created_at, getLang())}</span><button class="btn sm" data-open="${a.id}">${t('Görüntüle', 'View')}</button></div>`)}</div></details>` : ''}`);
+        <div class="list" style="margin-top:10px">${list.slice(1).map((a) => html`<div class="li"><span>${fmtDate(a.created_at, getLang())} · ${(a.meta?.lang || 'tr').toUpperCase()}</span><button class="btn sm" data-open="${a.id}">${t('Görüntüle', 'View')}</button></div>`)}</div></details>` : ''}`);
     const bindPrint = () => $$('[data-print]', box).forEach((b) => (b.onclick = () => {
       document.body.classList.add('print-deep');
       printPage(title).finally(() => document.body.classList.remove('print-deep'));
