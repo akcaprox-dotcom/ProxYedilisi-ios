@@ -3,6 +3,7 @@ import { route, fallback, start, go } from './core/router.js';
 import { refresh, state } from './core/state.js';
 import { onLang } from './core/i18n.js';
 import { installNativeLinks } from './core/native.js';
+import { loadLiveLegal } from './core/legal-live.js';
 import { renderHub } from './views/hub.js';
 import { renderLogin, renderRegister, renderForgot, renderOnboarding, renderAccount } from './views/auth.js';
 import { renderDashboard, renderModule, renderNew, renderAssessment } from './views/panels.js';
@@ -42,6 +43,7 @@ fallback(() => go('/'));
 
 (async () => {
   installNativeLinks();
+  loadLiveLegal();
   try {
     await refresh();
   } catch (e) {

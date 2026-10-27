@@ -75,7 +75,7 @@ export function renderRegister(_, q) {
         <small>${t('Doğrulama kodu bu numaraya SMS ile gönderilir. Girişte bu numarayı kullanacaksınız.', 'A verification code will be sent to this number by SMS. You will sign in with it.')}</small></label>
       ${pwField('pw', T('password'), { meter: true, auto: 'new-password' })}
       ${pwField('pw2', T('password2'), { auto: 'new-password' })}
-      <label class="check"><input type="checkbox" id="kvkk"> <span>${raw(t('<a href="#/legal/privacy" target="_blank">Gizlilik Politikası</a> ve <a href="#/legal/kvkk" target="_blank">KVKK Aydınlatma Metni</a>\'ni okudum; <a href="#/legal/terms" target="_blank">Kullanım Koşulları</a>\'nı kabul ediyorum. Değerlendirmelerin yürütülmesinden ve sonuçlara dayanılarak alınan kararlardan kurumumun sorumlu olduğunu biliyorum.', 'I have read the <a href="#/legal/privacy" target="_blank">Privacy Policy</a> and accept the <a href="#/legal/terms" target="_blank">Terms of Use</a>. I understand that my organization is responsible for running assessments and for decisions based on the results.'))}</span></label>
+      <label class="check"><input type="checkbox" id="kvkk"> <span>${raw(t('<a href="#/legal/privacy" target="_blank">Gizlilik Politikası</a> ve <a href="#/legal/kvkk">KVKK Aydınlatma Metni</a>\'ni okudum; <a href="#/legal/terms" target="_blank">Kullanım Koşulları</a>\'nı kabul ediyorum. Değerlendirmelerin yürütülmesinden ve sonuçlara dayanılarak alınan kararlardan kurumumun sorumlu olduğunu biliyorum.', 'I have read the <a href="#/legal/privacy" target="_blank">Privacy Policy</a> and accept the <a href="#/legal/terms" target="_blank">Terms of Use</a>. I understand that my organization is responsible for running assessments and for decisions based on the results.'))}</span></label>
       <button class="btn primary block" id="go">${T('register')}</button>
     </form>
     <div class="foot">${t('Zaten hesabınız var mı?', 'Already have an account?')} <a href="#/login">${T('login')}</a></div>`, () => renderRegister(_, q));
@@ -242,7 +242,10 @@ export function renderOnboarding(_, q) {
     <p class="lead">${t('Raporlarda ve katılımcı ekranlarında bu ad görünür.', 'This name appears on reports and respondent screens.')}</p>
     <form id="f" novalidate>
       <div class="form-err"></div>
-      <label class="field"><span>${t('Kurum adı', 'Organization name')}</span><input class="input" id="nm" required maxlength="120"></label>
+      <label class="field"><span>${t('Kurum adı veya rumuz', 'Organization name or alias')}</span><input class="input" id="nm" required maxlength="120" placeholder="${t('Örn. Testlerim 1980', 'e.g. Tests 1980')}"></label>
+      <div class="alert info alias-note">${raw(icon('info'))}<div><b>${t('Gerçek işletme adınızı yazmak zorunda değilsiniz.', 'You don\'t have to enter your real business name.')}</b>
+        ${t('Yalnızca sizin bileceğiniz bir rumuz veya kod da kullanabilirsiniz — örneğin "Testlerim 1980", "Mavi Ekip" ya da "Merkez-26". Hizmetin hiçbir özelliği bundan etkilenmez. Verileri korumak için gerekli önlemleri alıyoruz; ancak internet ortamında hiçbir veri için risk tamamen sıfırlanamaz. Rumuz kullanmak, işletmenizi tanımlayan bilgiyi en baştan dışarıda bırakır. Seçim tamamen size ait.', 'You can use an alias or code only you will recognise — e.g. "Tests 1980", "Blue Team" or "HQ-26". No feature is affected. We take the necessary safeguards, but no data online is entirely free of risk; an alias keeps information that identifies your business out from the start. The choice is entirely yours.')}
+        <small>${t('Not: Katılımcılar da anket ekranında bu adı görür; çalışanlarınızın tanıyacağı bir rumuz seçebilirsiniz.', 'Note: respondents also see this name on the survey screen, so you may pick an alias your staff will recognise.')} <a href="#/legal/kvkk">${t('Aydınlatma Metni', 'Privacy Notice')}</a></small></div></div>
       <label class="field"><span>${t('Sektör', 'Sector')}</span><select class="input" id="sec">${SECTORS.map(([k, tr, en]) => html`<option value="${k}">${t(tr, en)}</option>`)}</select></label>
       <label class="field"><span>${t('Çalışan sayısı', 'Employees')}</span><select class="input" id="sz">${SIZES.map((s) => html`<option>${s}</option>`)}</select></label>
       <button class="btn primary block" id="go">${T('continue')}</button>
@@ -250,7 +253,7 @@ export function renderOnboarding(_, q) {
   $('#f', card).onsubmit = async (e) => {
     e.preventDefault();
     const nm = $('#nm', card).value.trim();
-    if (nm.length < 2) return showErr(card, t('Kurum adını girin.', 'Enter the organization name.'));
+    if (nm.length < 2) return showErr(card, t('Kurum adını veya bir rumuz girin.', 'Enter the organization name or an alias.'));
     const b = $('#go', card);
     setBusy(b, true);
     try {

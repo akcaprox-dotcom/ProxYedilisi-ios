@@ -1,6 +1,8 @@
 import { store } from './util.js';
 
-let lang = store.get('apx.lang') || ((navigator.language || 'tr').startsWith('tr') ? 'tr' : 'en');
+// Arama motoru botları (Googlebot vb. İngilizce tarayıcıyla gelir) siteyi asıl dili olan Türkçe görsün
+const isBot = typeof navigator !== 'undefined' && /bot|crawl|spider|slurp|Google-InspectionTool|Lighthouse/i.test(navigator.userAgent || '');
+let lang = store.get('apx.lang') || (isBot ? 'tr' : (navigator.language || 'tr').startsWith('tr') ? 'tr' : 'en');
 const listeners = new Set();
 
 export const getLang = () => lang;

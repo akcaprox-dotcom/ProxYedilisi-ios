@@ -5,6 +5,7 @@ import { api } from '../core/api.js';
 import { icon } from '../core/ui.js';
 import { go } from '../core/router.js';
 import { DEMO_MODE } from '../config.js';
+import { trialChip, maybeTrialNotice } from './trial.js';
 
 export const app = () => document.getElementById('app');
 
@@ -46,6 +47,7 @@ export function topbar() {
     ${brand()}
     ${nav}
     <span class="spacer"></span>
+    ${trialChip()}
     ${state.session ? orgSel : ''}
     ${langToggle()}
     ${state.session
@@ -94,6 +96,7 @@ export function shell(body, rerender) {
   const el = app();
   el.innerHTML = toStr(topbar()) + `<main><div class="wrap">${toStr(body)}</div></main>` + (DEMO_MODE ? `<div class="demo-ribbon">${esc(t('DEMO MODU · yerel veri', 'DEMO MODE · local data'))}</div>` : '');
   bindTopbar(el, rerender);
+  setTimeout(maybeTrialNotice, 600);
   return el.querySelector('main .wrap');
 }
 

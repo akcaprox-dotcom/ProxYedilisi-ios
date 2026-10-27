@@ -7,7 +7,7 @@ import { getModule, effective } from '../modules/index.js';
 import { likertSteps, SCALES } from '../modules/common.js';
 import { COG, SJT, PERS, COG_MINUTES } from '../modules/ik.js';
 import { app, langToggle, bindLang } from './layout.js';
-import { DOCS } from '../content/legal.js';
+import { legal } from '../core/legal-live.js';
 
 const KEY = (code) => 'apx.sv.' + code;
 const DONE = (code) => 'apx.done.' + code;
@@ -16,7 +16,7 @@ const svBrand = () => html`<span class="brand"><img src="assets/img/logo.png" al
 
 // Aydınlatma metni anketten ayrılmadan alttan açılan pencerede gösterilir
 function showNotice() {
-  const d = DOCS['kvkk-respondent'];
+  const d = legal().DOCS['kvkk-respondent'];
   const en = getLang() === 'en';
   const s = sheet(html`<div class="eyebrow">Analiz ProX</div><h3 style="margin-top:6px">${en ? d.title.en : d.title.tr}</h3>
     <div class="doc" style="max-height:60vh;overflow:auto">${raw(en ? d.en : d.tr)}</div>

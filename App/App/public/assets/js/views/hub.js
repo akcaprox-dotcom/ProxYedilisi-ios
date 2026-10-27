@@ -64,7 +64,7 @@ export function renderHub() {
     <div class="hub-main">
       <div class="hub-copy">
         ${brand('lg')}
-        <div class="tag"><em><i>ProX Yedilisi</i></em> ${t('ile işletmenizin röntgenini çekin.', 'takes an X-ray of your organization.')} <span>${t('Kör noktalarınızı görün, potansiyelinizi ölçün.', 'See your blind spots, measure your potential.')}</span></div>
+        <h1 class="tag"><em><i>ProX Yedilisi</i></em> ${t('ile işletmenizin röntgenini çekin.', 'takes an X-ray of your organization.')} <span>${t('Kör noktalarınızı görün, potansiyelinizi ölçün.', 'See your blind spots, measure your potential.')}</span></h1>
         <p>${t('Yedi bilimsel analiz paneli, tek hesap. Çalışanlarınız anonim bağlantıyla yanıtlar; siz güven aralıkları, etki analizleri ve aksiyon önerileriyle hazırlanmış raporları anında görürsünüz.', 'Seven scientific analysis panels, one account. Your people respond anonymously via a link; you instantly get reports with confidence intervals, driver analysis and recommended actions.')}</p>
         <div class="hub-stats">
           <div><b>7</b><span>${t('panel', 'panels')}</span></div>
@@ -85,6 +85,12 @@ export function renderHub() {
         <p class="center dim mono" style="font-size:11.5px;letter-spacing:.18em;margin-top:14px">${t('PANEL SEÇMEK İÇİN DOKUNUN', 'TAP A PANEL TO SELECT')}</p>
       </div>
     </div>
+    <section class="hub-seo">
+      <h2>${t('Yedi analiz paneli', 'Seven analysis panels')}</h2>
+      <div class="hub-seo-grid">${mods.map((m) => html`<a href="#/guide/${m.key}"><b>${L(m.name)}</b><span>${L(m.tagline)}</span></a>`)}</div>
+      <h2>${t('Kurum Röntgeni ve Claude ile Derin Analiz', 'Organization X-Ray and Deep Analysis with Claude')}</h2>
+      <p>${t('Tüm panellerin sonuçları tek radar grafiğinde birleşir: en güçlü ve en zayıf alanlar, alanlar arası bağlantılar ve öncelikli aksiyonlar. Abonelikte Anthropic\'in Claude yapay zekâsı sonuçlarınızı bir iş danışmanı gibi yorumlar ve İK adaylarınız için kişiye özel mülakat rehberi hazırlar. 30 gün ücretsiz deneme; web, Android, iOS ve Windows\'ta aynı hesap.', 'All panel results combine on one radar: strongest and weakest areas, cross-area links and priority actions. With a subscription, Anthropic\'s Claude AI interprets your results like a business advisor and prepares candidate-specific interview guides. 30-day free trial; one account on web, Android, iOS and Windows.')}</p>
+    </section>
     <footer class="hub-foot">
       <span>${t('Destek', 'Support')}: <a href="mailto:${CONFIG.SUPPORT_EMAIL}">${CONFIG.SUPPORT_EMAIL}</a></span>
       <a href="https://barisakca.com.tr" target="_blank" rel="noopener">barisakca.com.tr</a>
@@ -95,7 +101,7 @@ export function renderHub() {
       <a href="#/legal/kvkk">${t('KVKK Aydınlatma', 'KVKK Notice')}</a>
       <span>© ${new Date().getFullYear()} Analiz ProX</span>
     </footer>
-  </div>${DEMO_MODE ? `<div class="demo-ribbon">${t('DEMO MODU', 'DEMO MODE')}</div>` : ''}`);
+  </div>${DEMO_MODE ? raw(`<div class="demo-ribbon">${t('DEMO MODU', 'DEMO MODE')}</div>`) : ''}`);
   bindLang(el, renderHub);
   $$('.node', el).forEach((b) => (b.onclick = () => moduleSheet(b.dataset.k)));
   $('#hub-start', el).onclick = () => go(state.session ? '/app' : '/register');
