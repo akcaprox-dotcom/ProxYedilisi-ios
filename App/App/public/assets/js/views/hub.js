@@ -6,6 +6,7 @@ import { icon, sheet } from '../core/ui.js';
 import { go } from '../core/router.js';
 import { MODULES, getModule } from '../modules/index.js';
 import { app, brand, langToggle, bindLang } from './layout.js';
+import { storeButtons, bindStores } from './stores.js';
 import { CONFIG, DEMO_MODE } from '../config.js';
 
 const AUD = {
@@ -75,6 +76,7 @@ export function renderHub() {
           <button class="btn primary" id="hub-start">${state.session ? t('Panelime git', 'Go to my panels') : t('Ücretsiz hesap oluştur', 'Create free account')}</button>
           <button class="btn" id="hub-pick">${t('Bir panel seçin', 'Pick a panel')}</button>
         </div>
+        ${storeButtons()}
       </div>
       <div>
         <div class="orbit" id="orbit">
@@ -103,6 +105,7 @@ export function renderHub() {
     </footer>
   </div>${DEMO_MODE ? raw(`<div class="demo-ribbon">${t('DEMO MODU', 'DEMO MODE')}</div>`) : ''}`);
   bindLang(el, renderHub);
+  bindStores(el);
   $$('.node', el).forEach((b) => (b.onclick = () => moduleSheet(b.dataset.k)));
   $('#hub-start', el).onclick = () => go(state.session ? '/app' : '/register');
   $('#hub-pick', el).onclick = () => {

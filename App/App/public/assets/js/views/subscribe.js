@@ -8,6 +8,7 @@ import { shell, crumbs } from './layout.js';
 import { access, canPurchase, loadPackage, purchase, restore, manageUrl, msService, msLoadItem, msPurchase, msSync, msManageUrl } from '../core/subscription.js';
 import { refresh } from '../core/state.js';
 import { isNative, platform } from '../core/native.js';
+import { storeButtons, bindStores } from './stores.js';
 import { CONFIG } from '../config.js';
 
 const STORE_NAME = { app_store: 'App Store', mac_app_store: 'App Store', play_store: 'Google Play', microsoft: 'Microsoft Store', admin: 'Analiz ProX' };
@@ -97,7 +98,8 @@ export async function renderSubscribe() {
   }
   if (!isNative()) {
     if (await msService()) return renderMs();
-    buy.innerHTML = toStr(html`<div class="alert info">${raw(icon('phone'))} ${t('Abonelik, Analiz ProX\'in Android, iOS veya Windows (Microsoft Store) uygulamasından başlatılır. Uygulamada aynı numara ve şifreyle giriş yapıp Hesap menüsünden "Abonelik"i açın. Aboneliğiniz tüm cihazlarda ve web\'de hemen geçerli olur.', 'Subscriptions are started in the Analiz ProX Android, iOS or Windows (Microsoft Store) app. Sign in with the same number and password and open "Subscription". It then applies on every device and on the web.')}</div>`);
+    buy.innerHTML = toStr(html`<div class="alert info">${raw(icon('phone'))} ${t('Abonelik, Analiz ProX\'in Android, iOS veya Windows (Microsoft Store) uygulamasından başlatılır. Uygulamada aynı numara ve şifreyle giriş yapıp Hesap menüsünden "Abonelik"i açın. Aboneliğiniz tüm cihazlarda ve web\'de hemen geçerli olur.', 'Subscriptions are started in the Analiz ProX Android, iOS or Windows (Microsoft Store) app. Sign in with the same number and password and open "Subscription". It then applies on every device and on the web.')}</div>${storeButtons()}`);
+    bindStores(buy);
     return;
   }
   if (!canPurchase()) {

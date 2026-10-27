@@ -15,7 +15,7 @@ export const CONFIG = {
   PUBLIC_URL:
     typeof location !== 'undefined' && /^https?:$/.test(location.protocol) && !/^(localhost|127\.|192\.168\.)/.test(location.hostname)
       ? location.origin
-      : 'https://analizprox.pages.dev',
+      : 'https://analizprox.barisakca.com.tr',
 
   // Telefonla kayıt/giriş açık mı? (Supabase'de SMS sağlayıcısı tanımlanınca true yapın)
   PHONE_AUTH: true,
@@ -32,6 +32,14 @@ export const CONFIG = {
   RC_PRODUCT: 'analizprox_aylik',
   MS_STORE_SKU: 'analizprox_aylik',   // Partner Center → Add-on → Product ID (aynı kimlik)
   TRIAL_DAYS: 30,
+
+  // Mağaza sayfaları — uygulama herkese açık yayına girince adresi yazın.
+  // Boş bırakılan buton tıklanınca "yakında, şimdi web'den ücretsiz kullanın" penceresi açar.
+  STORE_LINKS: {
+    play: '',       // https://play.google.com/store/apps/details?id=com.barisakca.analizprox
+    apple: '',      // https://apps.apple.com/tr/app/analiz-prox/id..........
+    microsoft: '',  // https://apps.microsoft.com/detail/..........
+  },
 };
 
 // Supabase bilgileri girilmemişse uygulama tarayıcı içi "demo modunda" çalışır:

@@ -8,6 +8,12 @@ import { go } from '../core/router.js';
 import { app, brand, langToggle, bindLang, shell } from './layout.js';
 import { CONFIG, DEMO_MODE } from '../config.js';
 
+// Aynı cihazdan 5 dakikada en fazla 1 SMS isteği (sunucu da numara başına 5 dk uygular)
+const SMS_GAP = 5 * 60 * 1000;
+const smsLeft = () => { try { return Math.max(0, +(localStorage.getItem('apx.sms.last') || 0) + SMS_GAP - Date.now()); } catch { return 0; } };
+const smsMark = () => { try { localStorage.setItem('apx.sms.last', String(Date.now())); } catch { /* yok say */ } };
+const smsWaitText = () => { const m = Math.ceil(smsLeft() / 60000); return t(`Bu cihazdan yeni kod için ${m} dakika bekleyin.`, `Please wait ${m} minute(s) before requesting a new code from this device.`); };
+
 function authFrame(inner, rerender) {
   const el = app();
   el.innerHTML = toStr(html`<header class="topbar"><div class="wrap">${brand()}<span class="spacer"></span>${langToggle()}</div></header>
@@ -39,7 +45,7 @@ export function renderLogin(_, q) {
     const idf = $('#idf', card).value.trim(), pw = $('#pw', card).value;
     if (!idf || !pw) return showErr(card, T('required'));
     if (idf.includes('@')) return showErr(card, t('Giriş e-posta ile değil, kayıtta doğruladığınız cep telefonu numarasıyla yapılır.', 'Sign in with the mobile number you verified at sign-up, not your email.'));
-    if (!isPhone(idf)) return showErr(card, t('Geçerli bir cep telefonu girin.', 'Enter a valid mobile number.'));
+    if (!/^\+\d{10,15}$/.test(normalizePhone(idf))) return showErr(card, t('Geçerli bir cep telefonu girin.', 'Enter a valid mobile number.')); // girişte SMS yok; eski hesaplar da girebilsin
     const b = $('#go', card);
     setBusy(b, true);
     try {
@@ -49,8 +55,12 @@ export function renderLogin(_, q) {
     } catch (err) {
       const m = String(err.message || '').toLowerCase();
       if (m.includes('not confirmed')) {
-        toast(t('Telefonunuzu doğrulayın; yeni kod gönderildi.', 'Verify your phone; a new code was sent.'));
-        await api.resendSignup({ phone: normalizePhone(idf) }).catch(() => {});
+        if (smsLeft()) toast(t('Telefonunuzu doğrulayın. Son gönderilen kodu kullanın.', 'Verify your phone. Use the last code sent.'));
+        else {
+          toast(t('Telefonunuzu doğrulayın; yeni kod gönderildi.', 'Verify your phone; a new code was sent.'));
+          smsMark();
+          await api.resendSignup({ phone: normalizePhone(idf) }).catch(() => {});
+        }
         return renderVerify({ identifier: normalizePhone(idf), next: nextOf(q) });
       }
       showErr(card, errText(err));
@@ -72,7 +82,7 @@ export function renderRegister(_, q) {
       <label class="field"><span>${T('email')}</span><input class="input" id="em" type="email" autocomplete="email" inputmode="email" required placeholder="ornek@firma.com">
         <small>${t('İletişim ve bilgilendirme için.', 'For contact and notifications.')}</small></label>
       <label class="field"><span>${T('phone')}</span><input class="input" id="ph" type="tel" autocomplete="username" inputmode="tel" required placeholder="05xx xxx xx xx">
-        <small>${t('Doğrulama kodu bu numaraya SMS ile gönderilir. Girişte bu numarayı kullanacaksınız.', 'A verification code will be sent to this number by SMS. You will sign in with it.')}</small></label>
+        <small>${t('Doğrulama kodu bu numaraya SMS ile gönderilir. Girişte bu numarayı kullanacaksınız. Türkiye dışı numaraları ülke koduyla yazın (ör. +44 7700 900123).', 'A verification code will be sent to this number by SMS. You will sign in with it. Outside Türkiye, include the country code (e.g. +44 7700 900123).')}</small></label>
       ${pwField('pw', T('password'), { meter: true, auto: 'new-password' })}
       ${pwField('pw2', T('password2'), { auto: 'new-password' })}
       <label class="check"><input type="checkbox" id="kvkk"> <span>${raw(t('<a href="#/legal/privacy" target="_blank">Gizlilik Politikası</a> ve <a href="#/legal/kvkk">KVKK Aydınlatma Metni</a>\'ni okudum; <a href="#/legal/terms" target="_blank">Kullanım Koşulları</a>\'nı kabul ediyorum. Değerlendirmelerin yürütülmesinden ve sonuçlara dayanılarak alınan kararlardan kurumumun sorumlu olduğunu biliyorum.', 'I have read the <a href="#/legal/privacy" target="_blank">Privacy Policy</a> and accept the <a href="#/legal/terms" target="_blank">Terms of Use</a>. I understand that my organization is responsible for running assessments and for decisions based on the results.'))}</span></label>
@@ -84,15 +94,17 @@ export function renderRegister(_, q) {
     const nm = $('#nm', card).value.trim(), ph = $('#ph', card).value.trim(), em = $('#em', card).value.trim();
     const pw = $('#pw', card).value, pw2 = $('#pw2', card).value;
     if (nm.length < 2) return showErr(card, t('Ad soyad girin.', 'Enter your full name.'));
-    if (!isPhone(ph)) return showErr(card, t('Geçerli bir cep telefonu girin.', 'Enter a valid mobile number.'));
+    if (!isPhone(ph)) return showErr(card, t('Geçerli bir cep telefonu girin. Yurt dışı numaraları ülke koduyla yazın (ör. +44…).', 'Enter a valid mobile number. Use the country code for non-Turkish numbers (e.g. +44…).'));
     if (!isEmail(em)) return showErr(card, t('Geçerli bir e-posta girin.', 'Enter a valid email.'));
     if (pw.length < 8 || !/\d/.test(pw) || !/[A-Za-zÇĞİÖŞÜçğıöşü]/.test(pw)) return showErr(card, t('Şifre en az 8 karakter olmalı ve harf ile rakam içermeli.', 'Password must be at least 8 characters and contain letters and numbers.'));
     if (pw !== pw2) return showErr(card, t('Şifreler eşleşmiyor.', 'Passwords do not match.'));
     if (!$('#kvkk', card).checked) return showErr(card, t('Devam etmek için aydınlatma metnini onaylayın.', 'Please accept the privacy notice to continue.'));
+    if (smsLeft()) return showErr(card, smsWaitText());
     const b = $('#go', card);
     setBusy(b, true);
     try {
       const phone = normalizePhone(ph);
+      smsMark();
       const res = await api.signUp({ phone, contact_email: em.toLowerCase(), full_name: nm, password: pw, lang: getLang() });
       if (res?.session) {
         await refresh();
@@ -135,10 +147,9 @@ export function renderVerify({ identifier, next }) {
   };
   const val = bindOtp(card, submit);
   $('#go', card).onclick = () => (val().length === 6 ? submit(val()) : showErr(card, t('6 haneli kodu girin.', 'Enter the 6-digit code.')));
-  let wait = 0;
   $('#resend', card).onclick = async (e) => {
-    if (wait > Date.now()) return toast(t('Lütfen biraz bekleyin.', 'Please wait a moment.'));
-    wait = Date.now() + 60000;
+    if (smsLeft()) return toast(smsWaitText());
+    smsMark();
     try {
       await api.resendSignup(viaEmail ? { email: identifier } : { phone: identifier });
       toast(t('Yeni kod gönderildi.', 'A new code was sent.'), 'ok');
@@ -164,7 +175,7 @@ export function renderForgot() {
   $('#f', card).onsubmit = async (e) => {
     e.preventDefault();
     const idf = $('#idf', card).value.trim();
-    if (!isPhone(idf)) return showErr(card, t('Geçerli bir cep telefonu girin.', 'Enter a valid mobile number.'));
+    if (!isPhone(idf)) return showErr(card, t('Geçerli bir cep telefonu girin. Yurt dışı numaraları ülke koduyla yazın (ör. +44…).', 'Enter a valid mobile number. Use the country code for non-Turkish numbers (e.g. +44…).'));
     const b = $('#go', card);
     setBusy(b, true);
     const weekly = (at) =>
@@ -175,7 +186,9 @@ export function renderForgot() {
       setBusy(b, false);
       return weekly(nextAt);
     }
+    if (smsLeft()) { setBusy(b, false); return showErr(card, smsWaitText()); }
     try {
+      smsMark();
       await api.sendReset(normalizePhone(idf));
     } catch (err) {
       // hesap olup olmadığını sızdırmamak için genel hatalar gösterilmez (haftalık sınır ve oran sınırı hariç)
@@ -234,8 +247,19 @@ const SECTORS = [
 ];
 const SIZES = ['1–9', '10–49', '50–249', '250–999', '1000+'];
 
-export function renderOnboarding(_, q) {
+export async function renderOnboarding(_, q) {
   if (!state.session) return go('/login');
+  // Zaten bir işletmesi olan kullanıcı, ek hakkı yoksa yeni kurum açamaz
+  if (state.orgs.some((o) => o.role === 'owner')) {
+    const al = await api.orgAllowance().catch(() => null);
+    if (al && al.owned >= al.max) {
+      authFrame(html`<div class="eyebrow">${t('Kurum bilgileri', 'Organization')}</div>
+        <h2 style="margin-top:10px">${t('Her hesap bir işletme içindir', 'One business per account')}</h2>
+        <p class="lead">${t('Her hesapla yalnızca bir işletme yönetilir; abonelik de bu işletmeye bağlıdır.', 'Each account manages one business only, and the subscription belongs to that business.')}</p>
+        <a class="btn primary block" href="#/app">${t('Panelime dön', 'Back to my panels')}</a>`, () => renderOnboarding(_, q));
+      return;
+    }
+  }
   const card = authFrame(html`
     <div class="eyebrow">${t('Kurum bilgileri', 'Organization')}</div>
     <h2 style="margin-top:10px">${t('Kurumunuzu tanımlayın', 'Set up your organization')}</h2>
@@ -291,12 +315,20 @@ export function renderAccount() {
         </form></div>
       <div class="card"><h3>${raw(icon('building'))} ${t('Kurumlarım', 'My organizations')}</h3>
         <div class="list">${state.orgs.map((o) => html`<div class="li"><div><h4>${o.name}</h4><div class="sub"><span>${o.size_band || ''}</span><span>${o.role}</span><span>${fmtDate(o.created_at, getLang())}</span></div></div></div>`)}</div>
-        <div class="row" style="margin-top:12px"><a class="btn sm" href="#/onboarding">${raw(icon('plus'))} ${t('Yeni kurum ekle', 'Add organization')}</a></div></div>
+        <div id="org-add" style="margin-top:12px"></div></div>
       <div class="card" style="border-color:rgba(232,56,79,.35)"><h3>${raw(icon('trash'))} ${t('Hesabı sil', 'Delete account')}</h3>
         <p class="muted" style="font-size:14px">${t('Hesabınız, sahibi olduğunuz kurumlar ve bu kurumlara ait tüm değerlendirme ve yanıtlar kalıcı olarak silinir. Bu işlem geri alınamaz.', 'Your account, the organizations you own and all their assessments and responses will be permanently deleted. This cannot be undone.')}</p>
         <button class="btn danger" id="del">${t('Hesabımı kalıcı olarak sil', 'Permanently delete my account')}</button></div>
     </div>`, renderAccount);
   bindPw(root);
+  // Bir hesap, bir işletme (istisnasız; yalnızca süper admin ek kurum açabilir)
+  api.orgAllowance().then((al) => {
+    const box = $('#org-add', root);
+    if (!box) return;
+    box.innerHTML = toStr(al && al.owned < al.max
+      ? html`<a class="btn sm" href="#/onboarding">${raw(icon('plus'))} ${t('Yeni kurum ekle', 'Add organization')}</a>`
+      : html`<p class="dim" style="font-size:13px;margin:0">${t('Her hesap yalnızca bir işletme içindir; abonelik de bu işletmeye bağlıdır.', 'Each account is for one business only, and the subscription belongs to that business.')}</p>`);
+  }).catch(() => {});
   $('#pf', root).onsubmit = async (e) => {
     e.preventDefault();
     const b = $('#ps', root);

@@ -66,6 +66,8 @@ export const T = (k) => L(D[k]) || k;
 export function errText(e) {
   const m = String(e?.message || e || '').toLowerCase();
   const map = [
+    ['bad_phone', t('Telefon numarası geçersiz. Yurt dışı numaraları ülke koduyla yazın (ör. +44…).', 'Invalid phone number. Use the country code (e.g. +44…).')],
+    ['sms_wait', t('Yeni kod için 5 dakika bekleyin.', 'Please wait 5 minutes before requesting a new code.')],
     ['invalid login', t('E-posta/telefon veya şifre hatalı.', 'Incorrect email/phone or password.')],
     ['email not confirmed', t('E-posta adresiniz henüz doğrulanmadı.', 'Your email has not been verified yet.')],
     ['phone not confirmed', t('Telefon numaranız henüz doğrulanmadı.', 'Your phone number has not been verified yet.')],
@@ -92,7 +94,7 @@ export function errText(e) {
     ['closed', t('Bu değerlendirme yanıta kapatılmış.', 'This assessment is closed for responses.')],
     ['completed', t('Bu değerlendirme zaten tamamlanmış.', 'This assessment has already been completed.')],
     ['duplicate', t('Bu cihazdan zaten yanıt gönderilmiş.', 'A response has already been submitted from this device.')],
-    ['org_limit', t('Kurum sınırına ulaşıldı.', 'Organization limit reached.')],
+    ['org_limit', t('Her hesap yalnızca bir işletme içindir.', 'Each account is for one business only.')],
     ['failed to fetch', t('Sunucuya ulaşılamıyor. İnternet bağlantınızı kontrol edin.', 'Cannot reach the server. Check your connection.')],
   ];
   for (const [k, v] of map) if (m.includes(k)) return v;

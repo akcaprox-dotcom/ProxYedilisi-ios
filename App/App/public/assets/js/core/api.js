@@ -125,6 +125,9 @@ function supabaseAdapter() {
     async createOrg({ name, sector, size }) {
       return chk(await sb.rpc('create_organization', { p_name: name, p_sector: sector, p_size: size }));
     },
+    async orgAllowance() {
+      return chk(await sb.rpc('my_org_allowance'));
+    },
     async updateOrg(id, patch) {
       return chk(await sb.from('organizations').update(patch).eq('id', id).select().single());
     },
@@ -489,11 +492,17 @@ function localAdapter() {
       const d = db();
       const u = me();
       if (!u) err('auth_required');
+      const owned = d.members.filter((m) => m.user_id === u.id && m.role === 'owner').length;
+      if (!isSuper() && owned >= 1) err('org_limit');
       const o = { id: uid(), name: name.trim(), sector, size_band: size, created_by: u.id, created_at: new Date().toISOString(), trial_ends_at: new Date(Date.now() + 30 * 864e5).toISOString(), sub_status: 'none' };
       d.orgs.push(o);
       d.members.push({ org_id: o.id, user_id: u.id, role: 'owner' });
       save(d);
       return o.id;
+    },
+    async orgAllowance() {
+      const d = db(), u = me();
+      return { owned: d.members.filter((m) => m.user_id === u?.id && m.role === 'owner').length, max: isSuper() ? 999 : 1 };
     },
     async updateOrg(id, patch) {
       const d = db();

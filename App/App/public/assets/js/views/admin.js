@@ -9,18 +9,30 @@ import { go } from '../core/router.js';
 import { shell } from './layout.js';
 
 let filter = '';
+let limit = 10;      // ilk 10 kurum; "daha fazla" ile 10'ar artar
+let cache = null;    // arama ve sayfalama sunucuya tekrar gitmez
 
+// Sayfaya girişte ve bir işlemden sonra: veriyi sunucudan yeniden al
 export async function renderAdmin() {
+  cache = null;
+  return draw();
+}
+
+async function draw() {
   if (!state.session) return go('/login?next=/admin');
   if (state.org?.viaAdmin) await refresh(); // başka kurumun gözünden çıkıp kendi hesabına dön
   if (!state.isSuper) return go('/app');
-  const root = shell(loader(), renderAdmin);
-  let rows = [], sent = [], ms = [], ai = [];
-  try {
-    [rows, sent, ms, ai] = await Promise.all([api.adminOverview(), api.adminSentMessages(), api.adminMsPurchases().catch(() => []), api.adminAiUsage().catch(() => [])]);
-  } catch (err) {
-    toast(errText(err), 'err');
+  const root = shell(cache ? '' : loader(), draw);
+  if (!cache) {
+    cache = { rows: [], sent: [], ms: [], ai: [] };
+    try {
+      const [rows, sent, ms, ai] = await Promise.all([api.adminOverview(), api.adminSentMessages(), api.adminMsPurchases().catch(() => []), api.adminAiUsage().catch(() => [])]);
+      cache = { rows, sent, ms, ai };
+    } catch (err) {
+      toast(errText(err), 'err');
+    }
   }
+  const { rows, sent, ms, ai } = cache;
   const lang = getLang();
   const tot = rows.reduce((a, r) => ({ a: a.a + Number(r.assessments), r: a.r + Number(r.responses) }), { a: 0, r: 0 });
   const frozen = rows.filter((r) => r.status === 'frozen').length;
@@ -42,7 +54,7 @@ export async function renderAdmin() {
       <input class="input" id="flt" placeholder="${t('Kurum, kişi, telefon veya e-posta ara…', 'Search organization, person, phone or email…')}" value="${filter}" style="max-width:420px">
       <button class="btn primary" id="bcast">${raw(icon('mail'))} ${t('Tüm kurumlara duyuru', 'Announce to all')}</button>
     </div>
-    ${shown.length ? html`<div class="list">${shown.map((r) => html`
+    ${shown.length ? html`<div class="list">${shown.slice(0, limit).map((r) => html`
       <div class="li">
         <div>
           <h4>${r.org_name} ${r.status === 'frozen' ? html`<span class="badge frozen">${t('Askıda', 'Suspended')}</span>` : html`<span class="badge open">${t('Aktif', 'Active')}</span>`} ${subBadge(r, lang)}</h4>
@@ -66,7 +78,9 @@ export async function renderAdmin() {
             : html`<button class="btn sm" data-act="freeze" data-id="${r.org_id}">${raw(icon('lock'))} ${t('Dondur', 'Suspend')}</button>`}
           <button class="btn sm danger" data-act="delete" data-id="${r.org_id}" aria-label="${T('delete')}">${raw(icon('trash'))} ${T('delete')}</button>
         </div>
-      </div>`)}</div>`
+      </div>`)}</div>
+      <div class="row between" style="margin-top:10px"><small class="muted">${t(`${shown.length} kurumdan ${Math.min(limit, shown.length)} tanesi gösteriliyor`, `Showing ${Math.min(limit, shown.length)} of ${shown.length}`)}</small>
+        ${shown.length > limit ? html`<button class="btn sm" id="more">${t(`10 daha göster (kalan ${shown.length - limit})`, `Show 10 more (${shown.length - limit} left)`)}</button>` : ''}</div>`
       : html`<div class="empty">${t('Kayıt bulunamadı.', 'No results.')}</div>`}
 
     <div class="rp-sec"><span class="n">⊞</span><h2>${t('Microsoft Store satın alımları', 'Microsoft Store purchases')}</h2></div>
@@ -103,11 +117,14 @@ export async function renderAdmin() {
 
   const byId = (id) => rows.find((r) => r.org_id === id);
   const flt = $('#flt', root);
+  const more = $('#more', root);
+  if (more) more.onclick = () => { limit += 10; draw(); };
   flt.oninput = () => {
     filter = flt.value;
+    limit = 10;
     clearTimeout(flt._t);
     flt._t = setTimeout(() => {
-      renderAdmin().then(() => {
+      draw().then(() => {
         const f = document.getElementById('flt');
         if (f) {
           f.focus();
@@ -341,3 +358,4 @@ function aiLimitSheet(x) {
     }
   };
 }
+

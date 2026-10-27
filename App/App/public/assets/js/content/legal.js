@@ -227,6 +227,7 @@ export const DOCS = {
 <li><b>Yenileme ve iptal:</b> Abonelik her ay otomatik yenilenir; dönem bitiminden en az 24 saat önce iptal edilmezse bir sonraki dönem ücreti mağaza hesabınızdan tahsil edilir. Aboneliği App Store, Google Play veya Microsoft hesap ayarlarınızdan istediğiniz zaman yönetebilir ve iptal edebilirsiniz; iptal, içinde bulunulan dönemin sonunda geçerli olur.</li>
 <li><b>İade:</b> Ödemeler Apple, Google veya Microsoft tarafından tahsil edildiğinden iade talepleri ilgili mağazanın iade politikasına göre mağazaya iletilir.</li>
 <li>Abonelik <b>kuruma bağlıdır</b>; aynı hesapla web, Windows, Android ve iOS'ta geçerlidir.</li>
+<li><b>Her hesap tek bir işletme içindir.</b> Bir hesapla yalnızca bir kurum açılabilir; abonelik bu kuruma bağlıdır. Ek kurum açılamaz.</li>
 <li><b>Claude ile Derin Analiz</b> yalnızca ücretli abonelikte (deneme süresinde değil) kullanılır: Kurum Röntgeni için kurum başına ayda 2, İK aday analizi için ayda 50 analiz hakkı vardır; haklar her ayın 1'inde yenilenir, kullanılmayan hak devretmez. Analizler Anthropic'in Claude yapay zekâ modeliyle üretilir, karar destek amaçlıdır ve hata içerebilir; kişiler hakkında yalnızca bu analize dayanarak karar verilmemelidir. Analiz ProX hak sayısını ve kullanılan modeli hizmetin işleyişine göre değiştirebilir.</li>
 <li>Deneme süresi dolduğunda veya abonelik sona erdiğinde veriler silinmez; açık anketler yanıt toplamaya devam eder. Ancak yeni değerlendirme oluşturma ile raporlara ve yanıt verilerine erişim, abonelik başlatılana kadar kapalı kalır. Hesabınızı ve verilerinizi dilediğiniz an silebilirsiniz.</li>
 </ul>
@@ -261,6 +262,7 @@ export const DOCS = {
 <li><b>Renewal and cancellation:</b> the subscription renews monthly unless cancelled at least 24 hours before the end of the period, and is charged to your store account. Manage or cancel any time in your App Store, Google Play or Microsoft account settings; cancellation takes effect at the end of the current period.</li>
 <li><b>Refunds</b> are handled by Apple, Google or Microsoft under their policies.</li>
 <li>The subscription belongs to the <b>organization</b> and applies on web, Windows, Android and iOS with the same account.</li>
+<li><b>Each account is for one business.</b> One account can open only one organization, and the subscription belongs to it. Additional organizations cannot be created.</li>
 <li><b>Deep Analysis with Claude</b> is available only on a paid subscription (not during the trial): 2 Organization X-Ray analyses and 50 HR candidate analyses per organization per month, renewing on the 1st; unused analyses do not roll over. Analyses are produced by Anthropic's Claude AI model, are for decision support and may contain errors; decisions about individuals must not rely solely on them. Analiz ProX may change quotas and the model used.</li>
 <li>When the trial or subscription ends, nothing is deleted and open surveys keep collecting answers, but creating assessments and accessing reports and response data are locked until a subscription is started.</li>
 </ul>

@@ -105,18 +105,21 @@ export function rng(seed = 1) {
   };
 }
 
+// + veya 00 ile başlayan numara uluslararası kabul edilir; başında ülke kodu
+// olmayan numara yalnızca Türkiye cep numarası (05xx…) ise kabul edilir.
+// Aksi hâlde '' döner → "ülke koduyla yazın" uyarısı (yanlış ülkeye SMS gitmesin).
 export function normalizePhone(input) {
   let d = String(input || '').replace(/[^\d+]/g, '');
   if (!d) return '';
-  if (d.startsWith('+')) return d;
+  if (d.startsWith('+')) return '+' + d.slice(1).replace(/\+/g, '');
   if (d.startsWith('00')) return '+' + d.slice(2);
   if (d.startsWith('0')) d = d.slice(1);
   if (d.length === 10 && d.startsWith('5')) return '+90' + d;
-  if (d.startsWith('90') && d.length === 12) return '+' + d;
-  return '+' + d;
+  if (d.length === 12 && d.startsWith('905')) return '+' + d;
+  return '';
 }
 export const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
-export const isPhone = (v) => /^\+\d{10,15}$/.test(normalizePhone(v));
+export const isPhone = (v) => /^\+[1-9]\d{9,14}$/.test(normalizePhone(v));
 
 export function fmtDate(iso, lang = 'tr') {
   if (!iso) return '—';
